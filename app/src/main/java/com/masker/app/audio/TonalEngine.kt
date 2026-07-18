@@ -11,37 +11,34 @@ import android.util.Log
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.util.Random
 import kotlin.concurrent.thread
+import kotlin.math.PI
 import kotlin.math.max
+import kotlin.math.sin
 
 /**
- * موتور تولید صدای ماسکر شنوایی.
- * از ۱۶ باند نویز فیلترشده (مانند ماسکرهای پیشرفته سمعک) استفاده می‌کند.
- * هر باند دارای یک slider جداگانه برای تنظیم شدت است، به علاوه:
- *  - ولوم کلی (master volume)
- *  - ولوم جداگانه گوش چپ و راست
+ * موتور تولید ماسکر «تونال» (Tonal Masker).
+ * برخلاف [NoiseEngine] که از نویز فیلترشده استفاده می‌کند، این موتور برای هر یک
+ * از ۱۶ فرکانس، یک تن خالص (موج سینوسی) تولید می‌کند. ماسکرهای تونال معمولاً برای
+ * تطبیق دقیق با پرده صدای وزوز گوش (Tinnitus Pitch) کاربر استفاده می‌شوند.
  */
-class NoiseEngine {
+class TonalEngine {
 
     companion object {
-        private const val TAG = "NoiseEngine"
-        const val SAMPLE_RATE = 44100
-        const val BAND_COUNT = 16
+        private const val TAG = "TonalEngine"
+        const val SAMPLE_RATE = NoiseEngine.SAMPLE_RATE
+        const val TONE_COUNT = NoiseEngine.BAND_COUNT
 
-        // فرکانس مرکزی هر یک از ۱۶ باند (هرتز) - طیفی از ۱۲۵ تا ۱۴۰۰۰ هرتز
-        val BAND_FREQUENCIES = doubleArrayOf(
-            125.0, 175.0, 250.0, 350.0, 500.0, 700.0, 1000.0, 1400.0,
-            2000.0, 2800.0, 4000.0, 5600.0, 8000.0, 10000.0, 12000.0, 14000.0
-        )
+        // از همان فرکانس‌های مرجع نویز استفاده می‌شود تا بین دو حالت هماهنگی وجود داشته باشد
+        val TONE_FREQUENCIES = NoiseEngine.BAND_FREQUENCIES
     }
 
-    // میزان هر باند، بین ۰ (خاموش) تا ۱ (حداکثر)
-    val bandGains = FloatArray(BAND_COUNT) { 0.6f }
+    // شدت هر تن، بین ۰ (خاموش) تا ۱ (حداکثر)
+    val toneGains = FloatArray(TONE_COUNT) { 0f }
 
     var masterVolume: Float = 0.7f
-    var leftVolume: Float = 1.0f   // ولوم اختصاصی گوش چپ (۰..۱)
-    var rightVolume: Float = 1.0f  // ولوم اختصاصی گوش راست (۰..۱)
+    var leftVolume: Float = 1.0f
+    var rightVolume: Float = 1.0f
 
     @Volatile
     var isPlaying: Boolean = false
@@ -50,19 +47,18 @@ class NoiseEngine {
     private var playbackThread: Thread? = null
     private var audioTrack: AudioTrack? = null
     private var focusRequest: AudioFocusRequest? = null
-    private val liveFilters = Array(BAND_COUNT) { BiquadBandPass(SAMPLE_RATE, BAND_FREQUENCIES[it]) }
-    private val random = Random()
 
-    /** شروع پخش زنده صدای ماسکر از بلندگو/هدفون */
+    private val livePhases = DoubleArray(TONE_COUNT)
+    private val phaseIncrements = DoubleArray(TONE_COUNT) { 2.0 * PI * TONE_FREQUENCIES[it] / SAMPLE_RATE }
+
     fun start(context: Context? = null) {
         if (isPlaying) return
         isPlaying = true
-        liveFilters.forEach { it.reset() }
+        for (i in livePhases.indices) livePhases[i] = 0.0
         if (context != null) requestAudioFocus(context)
-        playbackThread = thread(name = "MaskerPlaybackThread") { playLoop() }
+        playbackThread = thread(name = "MaskerTonalPlaybackThread") { playLoop() }
     }
 
-    /** توقف پخش زنده */
     fun stop(context: Context? = null) {
         isPlaying = false
         playbackThread?.join(500)
@@ -106,13 +102,16 @@ class NoiseEngine {
         }
     }
 
-    private fun buildMonoSample(filters: Array<BiquadBandPass>): Double {
-        val white = random.nextDouble() * 2.0 - 1.0
+    private fun buildMonoSample(phases: DoubleArray): Double {
         var sum = 0.0
-        for (i in 0 until BAND_COUNT) {
-            sum += filters[i].process(white) * bandGains[i]
+        for (i in 0 until TONE_COUNT) {
+            if (toneGains[i] > 0f) {
+                sum += sin(phases[i]) * toneGains[i]
+            }
+            phases[i] += phaseIncrements[i]
+            if (phases[i] > 2.0 * PI) phases[i] -= 2.0 * PI
         }
-        return sum / BAND_COUNT
+        return sum / TONE_COUNT
     }
 
     private fun playLoop() {
@@ -127,8 +126,6 @@ class NoiseEngine {
             AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
-                        // نکته مهم: USAGE_MEDIA باید با CONTENT_TYPE_MUSIC همراه باشد تا صدا
-                        // روی استریم صحیح (Media Volume) پخش شود؛ ترکیب اشتباه باعث سکوت می‌شد.
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
@@ -165,7 +162,7 @@ class NoiseEngine {
         while (isPlaying) {
             var idx = 0
             for (i in 0 until chunkFrames) {
-                val mono = buildMonoSample(liveFilters) * masterVolume
+                val mono = buildMonoSample(livePhases) * masterVolume
                 val l = (mono * leftVolume).coerceIn(-1.0, 1.0)
                 val r = (mono * rightVolume).coerceIn(-1.0, 1.0)
                 chunk[idx++] = (l * Short.MAX_VALUE).toInt().toShort()
@@ -176,21 +173,20 @@ class NoiseEngine {
     }
 
     /**
-     * تولید (رندر) فایل صوتی WAV از تنظیمات فعلی و ذخیره آن در مسیر مشخص شده.
-     * این تابع باید در یک ترد پس‌زمینه (نه ترد اصلی UI) فراخوانی شود.
+     * رندر آفلاین صدای تونال و ذخیره در فایل WAV.
      */
     fun renderToFile(outputFile: File, durationSeconds: Int): Boolean {
         return try {
-            val renderFilters = Array(BAND_COUNT) { BiquadBandPass(SAMPLE_RATE, BAND_FREQUENCIES[it]) }
+            val renderPhases = DoubleArray(TONE_COUNT)
             val totalFrames = SAMPLE_RATE * durationSeconds
-            val dataBytes = totalFrames * 2 /* channels */ * 2 /* bytes per sample */
+            val dataBytes = totalFrames * 2 * 2
 
             BufferedOutputStream(FileOutputStream(outputFile)).use { out ->
                 WavWriter.writeHeader(out, SAMPLE_RATE, 2, 16, dataBytes)
 
-                val frameBuf = ByteArray(4) // 2 bytes L + 2 bytes R
+                val frameBuf = ByteArray(4)
                 for (i in 0 until totalFrames) {
-                    val mono = buildMonoSample(renderFilters) * masterVolume
+                    val mono = buildMonoSample(renderPhases) * masterVolume
                     val l = (mono * leftVolume).coerceIn(-1.0, 1.0)
                     val r = (mono * rightVolume).coerceIn(-1.0, 1.0)
                     val lShort = (l * Short.MAX_VALUE).toInt().toShort()

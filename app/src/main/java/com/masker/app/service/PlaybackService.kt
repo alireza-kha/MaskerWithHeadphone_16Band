@@ -12,9 +12,12 @@ import androidx.core.app.NotificationCompat
 import com.masker.app.MainActivity
 import com.masker.app.R
 import com.masker.app.audio.NoiseEngine
+import com.masker.app.audio.TonalEngine
 
 /**
  * سرویس فورگراند برای پخش صدای ماسکر در پس‌زمینه (مثلاً هنگام خواب یا طبق زمان‌بندی).
+ * از دو موتور پشتیبانی می‌کند: ماسکر نویزی ([NoiseEngine]) و ماسکر تونال ([TonalEngine]).
+ * در هر لحظه فقط یکی از این دو در حال پخش است.
  */
 class PlaybackService : Service() {
 
@@ -22,6 +25,10 @@ class PlaybackService : Service() {
         const val ACTION_START = "com.masker.app.action.START"
         const val ACTION_STOP = "com.masker.app.action.STOP"
 
+        const val MODE_NOISE = "noise"
+        const val MODE_TONAL = "tonal"
+
+        const val EXTRA_MODE = "extra_mode"
         const val EXTRA_MASTER_VOLUME = "extra_master_volume"
         const val EXTRA_LEFT_VOLUME = "extra_left_volume"
         const val EXTRA_RIGHT_VOLUME = "extra_right_volume"
@@ -30,8 +37,9 @@ class PlaybackService : Service() {
         private const val CHANNEL_ID = "masker_playback_channel"
         private const val NOTIFICATION_ID = 1001
 
-        // نمونه مشترک موتور صدا تا فعالیت اصلی هم بتواند وضعیت را بخواند
-        val engine = NoiseEngine()
+        // نمونه‌های مشترک موتورهای صدا تا فعالیت اصلی هم بتواند وضعیت را بخواند/تغییر دهد
+        val noiseEngine = NoiseEngine()
+        val tonalEngine = TonalEngine()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -39,34 +47,49 @@ class PlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                engine.stop()
+                noiseEngine.stop(applicationContext)
+                tonalEngine.stop(applicationContext)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
             else -> {
-                applySettings(intent)
+                val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_NOISE
+                applySettings(intent, mode)
                 startForeground(NOTIFICATION_ID, buildNotification())
-                engine.start()
+                if (mode == MODE_TONAL) {
+                    noiseEngine.stop(applicationContext)
+                    tonalEngine.start(applicationContext)
+                } else {
+                    tonalEngine.stop(applicationContext)
+                    noiseEngine.start(applicationContext)
+                }
             }
         }
         return START_STICKY
     }
 
-    private fun applySettings(intent: Intent?) {
+    private fun applySettings(intent: Intent?, mode: String) {
         if (intent == null) return
-        if (intent.hasExtra(EXTRA_MASTER_VOLUME)) {
-            engine.masterVolume = intent.getFloatExtra(EXTRA_MASTER_VOLUME, engine.masterVolume)
-        }
-        if (intent.hasExtra(EXTRA_LEFT_VOLUME)) {
-            engine.leftVolume = intent.getFloatExtra(EXTRA_LEFT_VOLUME, engine.leftVolume)
-        }
-        if (intent.hasExtra(EXTRA_RIGHT_VOLUME)) {
-            engine.rightVolume = intent.getFloatExtra(EXTRA_RIGHT_VOLUME, engine.rightVolume)
-        }
+        val master = if (intent.hasExtra(EXTRA_MASTER_VOLUME)) intent.getFloatExtra(EXTRA_MASTER_VOLUME, 0.7f) else null
+        val left = if (intent.hasExtra(EXTRA_LEFT_VOLUME)) intent.getFloatExtra(EXTRA_LEFT_VOLUME, 1.0f) else null
+        val right = if (intent.hasExtra(EXTRA_RIGHT_VOLUME)) intent.getFloatExtra(EXTRA_RIGHT_VOLUME, 1.0f) else null
         val bands = intent.getFloatArrayExtra(EXTRA_BAND_GAINS)
-        if (bands != null && bands.size == engine.bandGains.size) {
-            for (i in bands.indices) engine.bandGains[i] = bands[i]
+
+        if (mode == MODE_TONAL) {
+            master?.let { tonalEngine.masterVolume = it }
+            left?.let { tonalEngine.leftVolume = it }
+            right?.let { tonalEngine.rightVolume = it }
+            if (bands != null && bands.size == tonalEngine.toneGains.size) {
+                for (i in bands.indices) tonalEngine.toneGains[i] = bands[i]
+            }
+        } else {
+            master?.let { noiseEngine.masterVolume = it }
+            left?.let { noiseEngine.leftVolume = it }
+            right?.let { noiseEngine.rightVolume = it }
+            if (bands != null && bands.size == noiseEngine.bandGains.size) {
+                for (i in bands.indices) noiseEngine.bandGains[i] = bands[i]
+            }
         }
     }
 
@@ -108,7 +131,8 @@ class PlaybackService : Service() {
     }
 
     override fun onDestroy() {
-        engine.stop()
+        noiseEngine.stop(applicationContext)
+        tonalEngine.stop(applicationContext)
         super.onDestroy()
     }
 }

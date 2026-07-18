@@ -53,6 +53,7 @@
         <item>Tap "Save Sound" to render the current settings into a WAV audio file of a chosen duration and save it on your device.</item>
         <item>Use "Playback Schedule" to set start/end times and days of the week for automatic playback (e.g. every night while you sleep).</item>
         <item>All your settings (16 bands, master volume, left/right volume) are saved automatically; closing and reopening the app restores your last settings.</item>
+        <item>The "Tonal Masker" tab lets you use pure sine tones at 16 frequencies instead of noise; this mode is better suited for matching your exact tinnitus pitch, and its settings, playback, and saving are completely independent from the "Noise Masker" tab.</item>
     </string-array>
 
     <string name="developer_title">About the Developer</string>
@@ -62,4 +63,9 @@
     <string name="developer_name_line">Name: %1$s</string>
     <string name="developer_phone_line">Mobile: %1$s</string>
     <string name="developer_email_line">Email: %1$s</string>
+
+    <string name="tab_noise">Noise Masker</string>
+    <string name="tab_tonal">Tonal Masker</string>
+    <string name="tonal_description">In tonal masker mode, instead of filtered noise, pure sine tones are generated at 16 frequencies. You can select one or more frequencies close to your tinnitus pitch and adjust their intensity.</string>
+    <string name="tones_title">Tone Frequencies (Hz)</string>
 </resources>

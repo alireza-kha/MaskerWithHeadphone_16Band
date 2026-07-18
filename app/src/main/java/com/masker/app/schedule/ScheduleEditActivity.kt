@@ -30,10 +30,10 @@ class ScheduleEditActivity : AppCompatActivity() {
         } else {
             // پیش‌فرض: کپی تنظیمات فعلی صدا از صفحه اصلی
             ScheduleItem(
-                masterVolume = PlaybackService.engine.masterVolume,
-                leftVolume = PlaybackService.engine.leftVolume,
-                rightVolume = PlaybackService.engine.rightVolume,
-                bandGains = PlaybackService.engine.bandGains.copyOf()
+                masterVolume = PlaybackService.noiseEngine.masterVolume,
+                leftVolume = PlaybackService.noiseEngine.leftVolume,
+                rightVolume = PlaybackService.noiseEngine.rightVolume,
+                bandGains = PlaybackService.noiseEngine.bandGains.copyOf()
             )
         }
 
