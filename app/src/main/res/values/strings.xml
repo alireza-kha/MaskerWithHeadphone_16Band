@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ماسکر</string>
+    <string name="subtitle">تولید صدای ماسکر شنوایی با ۱۶ باند فرکانسی قابل تنظیم</string>
+    <string name="bands_title">باندهای فرکانسی نویز</string>
+    <string name="master_volume">ولوم کلی</string>
+    <string name="per_ear_title">تنظیم جداگانه هر گوش</string>
+    <string name="left_ear">گوش چپ</string>
+    <string name="right_ear">گوش راست</string>
+    <string name="play">پخش</string>
+    <string name="stop">توقف</string>
+    <string name="save_sound">ذخیره صدا</string>
+    <string name="open_schedule">زمان‌بندی پخش</string>
+
+    <string name="schedule_title">زمان‌بندی پخش</string>
+    <string name="schedule_edit_title">ویرایش زمان‌بندی</string>
+    <string name="add_schedule">افزودن زمان‌بندی جدید</string>
+    <string name="start_time">زمان شروع</string>
+    <string name="end_time">زمان پایان</string>
+    <string name="days_of_week">روزهای فعال</string>
+    <string name="schedule_label">عنوان (اختیاری)</string>
+    <string name="save">ذخیره</string>
+    <string name="delete">حذف</string>
+    <string name="cancel">انصراف</string>
+
+    <string name="day_sat">شنبه</string>
+    <string name="day_sun">یکشنبه</string>
+    <string name="day_mon">دوشنبه</string>
+    <string name="day_tue">سه‌شنبه</string>
+    <string name="day_wed">چهارشنبه</string>
+    <string name="day_thu">پنجشنبه</string>
+    <string name="day_fri">جمعه</string>
+
+    <string name="save_duration_title">مدت زمان فایل ذخیره‌شده را انتخاب کنید</string>
+    <string name="save_success">فایل صدا با موفقیت ذخیره شد</string>
+    <string name="save_failed">ذخیره فایل صدا با خطا مواجه شد</string>
+    <string name="saving_in_progress">در حال تولید فایل صدا…</string>
+
+    <string name="notification_channel_name">پخش صدای ماسکر</string>
+    <string name="notification_title">ماسکر در حال پخش است</string>
+    <string name="notification_text">برای توقف ضربه بزنید</string>
+
+    <string name="schedule_empty">هنوز زمان‌بندی‌ای ثبت نشده است</string>
+
+    <string name="help">راهنما</string>
+    <string name="help_title">راهنمای استفاده از ماسکر</string>
+
+    <string-array name="help_steps">
+        <item>با استفاده از ۱۶ ترکبار پایین صفحه، شدت هر یک از باندهای فرکانسی نویز را از ۰ تا ۱۰۰ تنظیم کنید. کنار هر ترکبار یک باکس عددی هم قرار دارد که می‌توانید عدد دقیق را مستقیماً در آن تایپ کنید؛ حرکت ترکبار و تایپ عدد به‌طور خودکار با هم هماهنگ می‌شوند.</item>
+        <item>با ترکبار «ولوم کلی» می‌توانید بلندی کلی صدای تولیدشده را کم یا زیاد کنید.</item>
+        <item>با ترکبارهای «گوش چپ» و «گوش راست» می‌توانید شدت صدا را برای هر گوش هدفون به‌طور جداگانه تنظیم کنید.</item>
+        <item>با دکمه «پخش» صدای ماسکر با تنظیمات فعلی پخش می‌شود و با زدن دوباره همان دکمه (که به «توقف» تغییر نام می‌دهد) پخش متوقف می‌شود.</item>
+        <item>با دکمه «ذخیره صدا» می‌توانید صدای تولیدشده با تنظیمات فعلی را برای مدت زمان دلخواه به فایل صوتی WAV تبدیل و روی گوشی ذخیره کنید.</item>
+        <item>از دکمه «زمان‌بندی پخش» برای تعیین ساعت شروع و پایان و روزهای هفته‌ای استفاده کنید که می‌خواهید صدا به‌طور خودکار پخش شود (مثلاً هر شب هنگام خواب).</item>
+        <item>تمام تنظیمات شما (۱۶ باند، ولوم کلی، ولوم چپ و راست) به‌طور خودکار ذخیره می‌شوند؛ با بستن و باز کردن دوباره برنامه، آخرین تنظیمات شما بازیابی خواهند شد.</item>
+    </string-array>
+
+    <string name="developer_title">درباره برنامه‌نویس</string>
+    <string name="developer_name">سید علیرضا خلیفه سلطانی</string>
+    <string name="developer_phone">09023369444</string>
+    <string name="developer_email">Ali_2010ir@yahoo.com</string>
+    <string name="developer_name_line">نام و فامیل: %1$s</string>
+    <string name="developer_phone_line">تلفن موبایل: %1$s</string>
+    <string name="developer_email_line">ایمیل: %1$s</string>
+</resources>

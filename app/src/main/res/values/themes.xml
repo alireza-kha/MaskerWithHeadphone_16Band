@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Masker" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/masker_primary</item>
+        <item name="colorPrimaryDark">@color/masker_primary_dark</item>
+        <item name="colorAccent">@color/masker_accent</item>
+        <item name="android:statusBarColor" tools:targetApi="l">@color/masker_primary_dark</item>
+    </style>
+</resources>
