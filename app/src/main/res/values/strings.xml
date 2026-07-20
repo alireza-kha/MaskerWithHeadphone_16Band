@@ -93,6 +93,12 @@
     <string name="resume_test">ادامه آزمون</string>
     <string name="test_paused_status">آزمون موقتاً متوقف شده است</string>
 
+    <string name="patient_name_hint">نام و نام خانوادگی</string>
+    <string name="patient_age_hint">سن</string>
+    <string name="patient_name_required">لطفاً نام و نام خانوادگی را وارد کنید</string>
+    <string name="patient_age_required">لطفاً یک سن معتبر وارد کنید</string>
+    <string name="patient_info_format">نام: %1$s — سن: %2$s سال\nتاریخ آزمون: %3$s (شمسی) — %4$s (میلادی)</string>
+
     <string name="notch_title">حذف فرکانس وزوز از نویز (Notch)</string>
     <string name="notch_description">بر پایه پژوهش‌های «نویز notch‌شده» (Pantev و همکاران، ۲۰۱۲): با حذف یک باند باریک دقیقاً روی فرکانس وزوز گوش شما از نویز، ممکن است ادراک وزوز کاهش یابد. توجه: شواهد علمی برای اثر بلندمدت این روش هنوز قطعی نیست؛ آن را صرفاً یک گزینه آزمایشی برای امتحان کردن در نظر بگیرید.</string>
     <string name="notch_frequency_hint">فرکانس وزوز (هرتز)</string>

@@ -41,6 +41,24 @@
                 android:textColor="#B71C1C"
                 android:layout_marginBottom="16dp" />
 
+            <EditText
+                android:id="@+id/patientNameEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/patient_name_hint"
+                android:inputType="textPersonName"
+                android:importantForAutofill="no" />
+
+            <EditText
+                android:id="@+id/patientAgeEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:hint="@string/patient_age_hint"
+                android:inputType="number"
+                android:importantForAutofill="no" />
+
             <Button
                 android:id="@+id/playCalibrationToneButton"
                 android:layout_width="match_parent"
@@ -127,26 +145,45 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/audiogram_result_title"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
-
-            <com.masker.app.audiogram.AudiogramView
-                android:id="@+id/audiogramView"
-                android:layout_width="match_parent"
-                android:layout_height="320dp"
-                android:background="#FFFFFF" />
-
-            <TextView
+            <LinearLayout
+                android:id="@+id/resultCaptureContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/audiogram_legend"
-                android:textSize="12sp" />
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/audiogram_result_title"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/patientInfoText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="4dp"
+                    android:layout_marginBottom="10dp"
+                    tools:text="نام: علی رضایی — سن: ۳۵ سال\nتاریخ آزمون: ۱۴۰۴/۰۴/۲۹ (شمسی) — 2026/07/20 (میلادی)" />
+
+                <com.masker.app.audiogram.AudiogramView
+                    android:id="@+id/audiogramView"
+                    android:layout_width="match_parent"
+                    android:layout_height="320dp"
+                    android:background="#FFFFFF" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/audiogram_legend"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"

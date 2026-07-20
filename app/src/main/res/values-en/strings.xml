@@ -93,6 +93,12 @@
     <string name="resume_test">Resume Test</string>
     <string name="test_paused_status">Test is paused</string>
 
+    <string name="patient_name_hint">Full Name</string>
+    <string name="patient_age_hint">Age</string>
+    <string name="patient_name_required">Please enter your full name</string>
+    <string name="patient_age_required">Please enter a valid age</string>
+    <string name="patient_info_format">Name: %1$s — Age: %2$s years\nTest date: %3$s (Jalali) — %4$s (Gregorian)</string>
+
     <string name="notch_title">Remove Tinnitus Frequency from Noise (Notch)</string>
     <string name="notch_description">Based on notched sound research (Pantev et al., 2012): removing a narrow band exactly at your tinnitus pitch from the noise may reduce tinnitus perception. Note: long-term scientific evidence for this method is still not conclusive; treat it as an experimental option to try.</string>
     <string name="notch_frequency_hint">Tinnitus Frequency (Hz)</string>

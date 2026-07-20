@@ -47,6 +47,9 @@ class AudiogramActivity : AppCompatActivity() {
     private var pendingFreqHz: Double = 0.0
     private var pendingAttenuation: Float = 0f
 
+    private var patientName: String = ""
+    private var patientAge: Int = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityAudiogramBinding.inflate(layoutInflater)
@@ -65,6 +68,19 @@ class AudiogramActivity : AppCompatActivity() {
     }
 
     private fun startTest() {
+        val name = binding.patientNameEditText.text?.toString()?.trim().orEmpty()
+        if (name.isEmpty()) {
+            Toast.makeText(this, R.string.patient_name_required, Toast.LENGTH_LONG).show()
+            return
+        }
+        val age = binding.patientAgeEditText.text?.toString()?.trim()?.toIntOrNull()
+        if (age == null || age <= 0 || age > 130) {
+            Toast.makeText(this, R.string.patient_age_required, Toast.LENGTH_LONG).show()
+            return
+        }
+        patientName = name
+        patientAge = age
+
         isPaused = false
         binding.pauseResumeButton.text = getString(R.string.pause_test)
         binding.pausedStatusText.visibility = View.GONE
@@ -154,12 +170,24 @@ class AudiogramActivity : AppCompatActivity() {
     }
 
     private fun onTestFinished(result: AudiogramResult) {
-        lastResult = result
-        AudiogramStorage.saveLastResult(this, result)
+        val fullResult = result.copy(patientName = patientName, patientAge = patientAge)
+        lastResult = fullResult
+        AudiogramStorage.saveLastResult(this, fullResult)
 
         binding.testSection.visibility = View.GONE
         binding.resultSection.visibility = View.VISIBLE
-        binding.audiogramView.setResult(result)
+        binding.audiogramView.setResult(fullResult)
+        updatePatientInfoText(fullResult)
+    }
+
+    private fun updatePatientInfoText(result: AudiogramResult) {
+        val date = Date(result.timestampMillis)
+        val jalaliDate = PersianDateUtils.toJalaliString(date)
+        val gregorianDate = PersianDateUtils.toGregorianString(date)
+        val ageDigits = PersianDateUtils.toPersianDigits(result.patientAge.toString())
+        binding.patientInfoText.text = getString(
+            R.string.patient_info_format, result.patientName, ageDigits, jalaliDate, gregorianDate
+        )
     }
 
     private fun showIntroSection() {
@@ -182,7 +210,7 @@ class AudiogramActivity : AppCompatActivity() {
     }
 
     private fun renderResultBitmap(): Bitmap? {
-        val view = binding.audiogramView
+        val view = binding.resultCaptureContainer
         if (view.width == 0 || view.height == 0) return null
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)

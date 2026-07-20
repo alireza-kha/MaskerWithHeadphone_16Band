@@ -4,7 +4,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * نتیجه یک آزمون شنوایی کامل: آستانه شنوایی هر گوش در فرکانس‌های استاندارد آزمون.
+ * نتیجه یک آزمون شنوایی کامل: آستانه شنوایی هر گوش در فرکانس‌های استاندارد آزمون،
+ * به‌همراه اطلاعات فرد آزمون‌شونده (نام و سن) و تاریخ آزمون.
  * مقادیر threshold بر حسب "dB کاهش نسبت به حداکثر خروجی دستگاه" هستند (مقیاس نسبی و
  * غیرکالیبره، نه dB HL بالینی). مقدار Float.NaN یعنی حتی در بلندترین سطح هم پاسخی ثبت نشد.
  */
@@ -12,11 +13,15 @@ data class AudiogramResult(
     val frequenciesHz: List<Double>,
     val rightThresholdsDb: FloatArray,
     val leftThresholdsDb: FloatArray,
-    val timestampMillis: Long
+    val timestampMillis: Long,
+    val patientName: String = "",
+    val patientAge: Int = 0
 ) {
     fun toJson(): JSONObject {
         val obj = JSONObject()
         obj.put("timestamp", timestampMillis)
+        obj.put("patientName", patientName)
+        obj.put("patientAge", patientAge)
 
         val freqArr = JSONArray()
         for (f in frequenciesHz) freqArr.put(f)
@@ -36,6 +41,8 @@ data class AudiogramResult(
     companion object {
         fun fromJson(obj: JSONObject): AudiogramResult {
             val timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+            val patientName = obj.optString("patientName", "")
+            val patientAge = obj.optInt("patientAge", 0)
 
             val freqArr = obj.optJSONArray("frequencies")
             val frequencies = mutableListOf<Double>()
@@ -59,7 +66,7 @@ data class AudiogramResult(
                 }
             }
 
-            return AudiogramResult(frequencies, right, left, timestamp)
+            return AudiogramResult(frequencies, right, left, timestamp, patientName, patientAge)
         }
     }
 }
