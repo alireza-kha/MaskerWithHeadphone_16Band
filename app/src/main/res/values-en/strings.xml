@@ -47,14 +47,14 @@
 
     <string-array name="help_steps">
         <item>Use the 16 sliders at the bottom of the screen to adjust the intensity of each noise frequency band from 0 to 100. Next to each slider is a number box where you can type the exact value directly; the slider and the number box stay in sync automatically.</item>
-        <item>Use the "Master Volume" slider to raise or lower the overall loudness of the generated sound.</item>
-        <item>Use the "Left Ear" and "Right Ear" sliders to adjust the sound level independently for each headphone channel.</item>
-        <item>Tap "Play" to start playback with the current settings; tap the same button again (now labeled "Stop") to stop it.</item>
-        <item>Tap "Save Sound" to render the current settings into a WAV audio file of a chosen duration and save it on your device.</item>
-        <item>Use "Playback Schedule" to set start/end times and days of the week for automatic playback (e.g. every night while you sleep).</item>
+        <item>Use the &#8220;Master Volume&#8221; slider to raise or lower the overall loudness of the generated sound.</item>
+        <item>Use the &#8220;Left Ear&#8221; and &#8220;Right Ear&#8221; sliders to adjust the sound level independently for each headphone channel.</item>
+        <item>Tap &#8220;Play&#8221; to start playback with the current settings; tap the same button again (now labeled &#8220;Stop&#8221;) to stop it.</item>
+        <item>Tap &#8220;Save Sound&#8221; to render the current settings into a WAV audio file of a chosen duration and save it on your device.</item>
+        <item>Use &#8220;Playback Schedule&#8221; to set start/end times and days of the week for automatic playback (e.g. every night while you sleep).</item>
         <item>All your settings (16 bands, master volume, left/right volume) are saved automatically; closing and reopening the app restores your last settings.</item>
-        <item>The "Tonal Masker" tab lets you use pure sine tones at 16 frequencies instead of noise; this mode is better suited for matching your exact tinnitus pitch, and its settings, playback, and saving are completely independent from the "Noise Masker" tab.</item>
-        <item>The "Audiogram" tab lets you run a headphone-based hearing test that charts both ears' hearing; the chart can be saved and shared, but it is not a substitute for a professional hearing assessment.</item>
+        <item>The &#8220;Tonal Masker&#8221; tab lets you use pure sine tones at 16 frequencies instead of noise; this mode is better suited for matching your exact tinnitus pitch, and its settings, playback, and saving are completely independent from the &#8220;Noise Masker&#8221; tab.</item>
+        <item>The &#8220;Audiogram&#8221; tab lets you run a headphone-based hearing test that charts both ears\' hearing; the chart can be saved and shared, but it is not a substitute for a professional hearing assessment.</item>
     </string-array>
 
     <string name="developer_title">About the Developer</string>
@@ -76,7 +76,7 @@
     <string name="last_audiogram_format">Last test: %1$s</string>
 
     <string name="audiogram_title">Hearing Test (Audiogram)</string>
-    <string name="audiogram_intro_text">Before you start:\n1. Make sure to use headphones (not the phone speaker).\n2. Find a quiet environment.\n3. Use the button below to play a test tone and set your volume to a comfortable, clearly audible level (not too loud).\n4. Then start the test; for each ear, tones will play at 6 standard frequencies (250-8000 Hz). Tap "I heard it" as soon as you hear a tone. If you don\'t hear anything, do nothing and it will move on automatically.</string>
+    <string name="audiogram_intro_text">Before you start:\n1. Make sure to use headphones (not the phone speaker).\n2. Find a quiet environment.\n3. Use the button below to play a test tone and set your volume to a comfortable, clearly audible level (not too loud).\n4. Then start the test; for each ear, tones will play at 6 standard frequencies (250-8000 Hz). Tap &#8220;I heard it&#8221; as soon as you hear a tone. If you don\'t hear anything, do nothing and it will move on automatically.</string>
     <string name="audiogram_disclaimer">Note: this is a personal, uncalibrated screening test (dependent on your headphone model, volume setting, and ambient noise) and is not a substitute for clinical hearing assessment by an audiologist. Use the results only to compare and track your own trend over time.</string>
     <string name="play_calibration_tone">Play Test Tone to Set Volume</string>
     <string name="start_test">Start Test</string>
