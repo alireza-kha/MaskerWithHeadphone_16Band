@@ -59,6 +59,11 @@
                 android:layout_height="wrap_content"
                 android:text="@string/tab_tonal" />
 
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/tab_audiogram" />
+
         </com.google.android.material.tabs.TabLayout>
 
         <!-- ===================== محتوای تب «ماسکر نویزی» ===================== -->
@@ -258,6 +263,38 @@
                     android:layout_marginStart="4dp"
                     android:text="@string/save_sound" />
             </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ===================== محتوای تب «اودیوگرام» ===================== -->
+        <LinearLayout
+            android:id="@+id/audiogramTabContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/audiogram_tab_description"
+                android:textSize="13sp"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:id="@+id/lastAudiogramText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="italic"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/openAudiogramButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/start_hearing_test" />
 
         </LinearLayout>
 

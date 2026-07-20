@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.tabs.TabLayout
 import com.masker.app.audio.NoiseEngine
 import com.masker.app.audio.TonalEngine
+import com.masker.app.audiogram.AudiogramActivity
+import com.masker.app.audiogram.AudiogramStorage
 import com.masker.app.databinding.ActivityMainBinding
 import com.masker.app.databinding.ItemBandSliderBinding
 import com.masker.app.schedule.ScheduleActivity
@@ -58,19 +60,21 @@ class MainActivity : AppCompatActivity() {
         setupTonalVolumeSliders()
         setupButtons()
         setupTabs()
+        updateLastAudiogramSummary()
         requestNotificationPermissionIfNeeded()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateLastAudiogramSummary()
     }
 
     private fun setupTabs() {
         binding.modeTabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
-                if (tab.position == 0) {
-                    binding.noiseTabContent.visibility = android.view.View.VISIBLE
-                    binding.tonalTabContent.visibility = android.view.View.GONE
-                } else {
-                    binding.noiseTabContent.visibility = android.view.View.GONE
-                    binding.tonalTabContent.visibility = android.view.View.VISIBLE
-                }
+                binding.noiseTabContent.visibility = if (tab.position == 0) android.view.View.VISIBLE else android.view.View.GONE
+                binding.tonalTabContent.visibility = if (tab.position == 1) android.view.View.VISIBLE else android.view.View.GONE
+                binding.audiogramTabContent.visibility = if (tab.position == 2) android.view.View.VISIBLE else android.view.View.GONE
             }
             override fun onTabUnselected(tab: TabLayout.Tab) {}
             override fun onTabReselected(tab: TabLayout.Tab) {}
@@ -308,6 +312,21 @@ class MainActivity : AppCompatActivity() {
             if (isTonalPlaying) stopPlayback(PlaybackService.MODE_TONAL) else startPlayback(PlaybackService.MODE_TONAL)
         }
         binding.tonalSaveButton.setOnClickListener { showSaveDurationDialog(PlaybackService.MODE_TONAL) }
+
+        binding.openAudiogramButton.setOnClickListener {
+            startActivity(Intent(this, AudiogramActivity::class.java))
+        }
+    }
+
+    private fun updateLastAudiogramSummary() {
+        val last = AudiogramStorage.loadLastResult(this)
+        if (last != null) {
+            val dateStr = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.US).format(Date(last.timestampMillis))
+            binding.lastAudiogramText.text = getString(R.string.last_audiogram_format, dateStr)
+            binding.lastAudiogramText.visibility = android.view.View.VISIBLE
+        } else {
+            binding.lastAudiogramText.visibility = android.view.View.GONE
+        }
     }
 
     private fun startPlayback(mode: String) {

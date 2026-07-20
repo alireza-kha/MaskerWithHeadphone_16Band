@@ -27,6 +27,11 @@
         </activity>
 
         <activity
+            android:name=".audiogram.AudiogramActivity"
+            android:exported="false"
+            android:label="@string/audiogram_title" />
+
+        <activity
             android:name=".HelpActivity"
             android:exported="false"
             android:label="@string/help_title" />
