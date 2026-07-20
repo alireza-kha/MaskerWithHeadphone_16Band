@@ -99,6 +99,24 @@
                 android:text="@string/i_heard_it"
                 android:textSize="18sp" />
 
+            <TextView
+                android:id="@+id/pausedStatusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/test_paused_status"
+                android:textColor="#B71C1C"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/pauseResumeButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="@string/pause_test" />
+
         </LinearLayout>
 
         <!-- ===================== بخش نتیجه ===================== -->

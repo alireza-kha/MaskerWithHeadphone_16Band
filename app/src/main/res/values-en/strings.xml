@@ -56,6 +56,7 @@
         <item>The &#8220;Tonal Masker&#8221; tab lets you use pure sine tones at 16 frequencies instead of noise; this mode is better suited for matching your exact tinnitus pitch, and its settings, playback, and saving are completely independent from the &#8220;Noise Masker&#8221; tab.</item>
         <item>The &#8220;Audiogram&#8221; tab lets you run a headphone-based hearing test that charts both ears\' hearing; the chart can be saved and shared, but it is not a substitute for a professional hearing assessment.</item>
         <item>In the &#8220;Noise Masker&#8221; tab, the &#8220;Remove Tinnitus Frequency&#8221; section lets you enter your tinnitus pitch (or pull it from your audiogram result) so that exact band is removed from the noise; this is based on notched sound research (Pantev et al.).</item>
+        <item>During the audiogram test, use &#8220;Pause Test&#8221; to pause at any time, and &#8220;Resume Test&#8221; to continue right where you left off.</item>
     </string-array>
 
     <string name="developer_title">About the Developer</string>
@@ -88,6 +89,9 @@
     <string name="audiogram_legend">Red circle = right ear, blue X = left ear. A higher point means that frequency was heard at a quieter level (relatively better hearing).</string>
     <string name="share">Share</string>
     <string name="retake_test">Retake Test</string>
+    <string name="pause_test">Pause Test</string>
+    <string name="resume_test">Resume Test</string>
+    <string name="test_paused_status">Test is paused</string>
 
     <string name="notch_title">Remove Tinnitus Frequency from Noise (Notch)</string>
     <string name="notch_description">Based on notched sound research (Pantev et al., 2012): removing a narrow band exactly at your tinnitus pitch from the noise may reduce tinnitus perception. Note: long-term scientific evidence for this method is still not conclusive; treat it as an experimental option to try.</string>

@@ -40,6 +40,13 @@ class AudiogramActivity : AppCompatActivity() {
     private var lastResult: AudiogramResult? = null
     private var waitingForResponse = false
 
+    // برای امکان توقف موقت و ادامه آزمون: آخرین کارآزمایی (trial) در حال انجام را نگه می‌داریم
+    // تا بتوانیم پس از «ادامه»، همان تن را دوباره از ابتدا پخش کنیم
+    private var isPaused = false
+    private var pendingEar: Ear? = null
+    private var pendingFreqHz: Double = 0.0
+    private var pendingAttenuation: Float = 0f
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityAudiogramBinding.inflate(layoutInflater)
@@ -51,12 +58,17 @@ class AudiogramActivity : AppCompatActivity() {
 
         binding.startTestButton.setOnClickListener { startTest() }
         binding.heardButton.setOnClickListener { onUserRespondedHeard() }
+        binding.pauseResumeButton.setOnClickListener { onPauseResumeClicked() }
         binding.retakeTestButton.setOnClickListener { showIntroSection() }
         binding.saveAudiogramButton.setOnClickListener { saveAudiogramImage(share = false) }
         binding.shareAudiogramButton.setOnClickListener { saveAudiogramImage(share = true) }
     }
 
     private fun startTest() {
+        isPaused = false
+        binding.pauseResumeButton.text = getString(R.string.pause_test)
+        binding.pausedStatusText.visibility = View.GONE
+
         binding.introSection.visibility = View.GONE
         binding.resultSection.visibility = View.GONE
         binding.testSection.visibility = View.VISIBLE
@@ -83,10 +95,18 @@ class AudiogramActivity : AppCompatActivity() {
     }
 
     private fun playTestTone(ear: Ear, freqHz: Double, attenuationDb: Float) {
+        pendingEar = ear
+        pendingFreqHz = freqHz
+        pendingAttenuation = attenuationDb
+
         waitingForResponse = false
         binding.heardButton.isEnabled = false
 
         HearingTestTonePlayer.playTone(this, ear, freqHz, attenuationDb, TONE_DURATION_MS) {
+            // اگر کاربر در همین حین آزمون را موقتاً متوقف کرده باشد، پنجره پاسخ باز نمی‌شود؛
+            // با زدن «ادامه» همین کارآزمایی دوباره از ابتدا پخش خواهد شد
+            if (isPaused) return@playTone
+
             // پس از پایان پخش، پنجره زمانی برای دریافت پاسخ باز می‌شود
             waitingForResponse = true
             binding.heardButton.isEnabled = true
@@ -103,8 +123,30 @@ class AudiogramActivity : AppCompatActivity() {
         }
     }
 
+    private fun onPauseResumeClicked() {
+        if (isPaused) {
+            // ادامه: همان کارآزمایی متوقف‌شده را دوباره از ابتدا پخش می‌کنیم
+            isPaused = false
+            binding.pauseResumeButton.text = getString(R.string.pause_test)
+            binding.pausedStatusText.visibility = View.GONE
+
+            val ear = pendingEar
+            if (ear != null) {
+                playTestTone(ear, pendingFreqHz, pendingAttenuation)
+            }
+        } else {
+            isPaused = true
+            waitingForResponse = false
+            binding.heardButton.isEnabled = false
+            pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+
+            binding.pauseResumeButton.text = getString(R.string.resume_test)
+            binding.pausedStatusText.visibility = View.VISIBLE
+        }
+    }
+
     private fun onUserRespondedHeard() {
-        if (!waitingForResponse) return
+        if (!waitingForResponse || isPaused) return
         waitingForResponse = false
         binding.heardButton.isEnabled = false
         pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -123,7 +165,13 @@ class AudiogramActivity : AppCompatActivity() {
     private fun showIntroSection() {
         pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
         waitingForResponse = false
+        isPaused = false
+        pendingEar = null
         controller = null
+
+        binding.pauseResumeButton.text = getString(R.string.pause_test)
+        binding.pausedStatusText.visibility = View.GONE
+
         binding.testSection.visibility = View.GONE
         binding.resultSection.visibility = View.GONE
         binding.introSection.visibility = View.VISIBLE
