@@ -23,6 +23,9 @@ object SettingsStorage {
     private const val KEY_NOTCH_FREQUENCY = "notch_frequency"
     private const val KEY_NOTCH_WIDTH = "notch_width"
 
+    private const val KEY_MODULATION_ENABLED = "modulation_enabled"
+    private const val KEY_MODULATION_DEPTH = "modulation_depth"
+
     fun saveBandGain(context: Context, index: Int, value: Float) {
         prefs(context).edit().putFloat(KEY_BAND_PREFIX + index, value).apply()
     }
@@ -109,6 +112,23 @@ object SettingsStorage {
 
     fun loadNotchWidth(context: Context, default: Float): Float {
         return prefs(context).getFloat(KEY_NOTCH_WIDTH, default)
+    }
+
+    // ---- تنظیمات مدولاسیون دامنه ۱۰ هرتز ----
+
+    fun saveModulationSettings(context: Context, enabled: Boolean, depth: Float) {
+        prefs(context).edit()
+            .putBoolean(KEY_MODULATION_ENABLED, enabled)
+            .putFloat(KEY_MODULATION_DEPTH, depth)
+            .apply()
+    }
+
+    fun loadModulationEnabled(context: Context): Boolean {
+        return prefs(context).getBoolean(KEY_MODULATION_ENABLED, false)
+    }
+
+    fun loadModulationDepth(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_MODULATION_DEPTH, default)
     }
 
     private fun prefs(context: Context) =

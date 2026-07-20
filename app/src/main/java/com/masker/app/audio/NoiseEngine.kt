@@ -13,6 +13,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.Random
 import kotlin.concurrent.thread
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.max
 
 /**
@@ -28,6 +30,10 @@ class NoiseEngine {
         private const val TAG = "NoiseEngine"
         const val SAMPLE_RATE = 44100
         const val BAND_COUNT = 16
+
+        // مدولاسیون دامنه ۱۰ هرتز، بر پایه پژوهش‌های Neff et al. (2017) و مطالعه ۲۰۲۵ در
+        // Hearing Research: صداهای مدوله‌شده نسبت به صدای ثابت، سرکوب مؤثرتری روی وزوز نشان دادند
+        const val MODULATION_RATE_HZ = 10.0
 
         // فرکانس مرکزی هر یک از ۱۶ باند (هرتز) - طیفی از ۱۲۵ تا ۱۴۰۰۰ هرتز
         val BAND_FREQUENCIES = doubleArrayOf(
@@ -59,6 +65,13 @@ class NoiseEngine {
         liveNotchFilter = if (enabled) NotchFilter(SAMPLE_RATE, frequencyHz, widthOctaves) else null
     }
 
+    // ---- مدولاسیون دامنه ۱۰ هرتز (بر پایه پژوهش‌های Neff et al., 2017 و ۲۰۲۵) ----
+    var modulationEnabled: Boolean = false
+    var modulationDepth: Float = 0.6f // ۰ تا ۱ (چه میزان دامنه در پایین‌ترین نقطه افت کند)
+
+    private var modPhase = 0.0
+    private val modPhaseIncrement = 2.0 * PI * MODULATION_RATE_HZ / SAMPLE_RATE
+
     @Volatile
     var isPlaying: Boolean = false
         private set
@@ -76,6 +89,7 @@ class NoiseEngine {
         isPlaying = true
         liveFilters.forEach { it.reset() }
         liveNotchFilter?.reset()
+        modPhase = 0.0
         if (context != null) requestAudioFocus(context)
         playbackThread = thread(name = "MaskerPlaybackThread") { playLoop() }
     }
@@ -132,6 +146,15 @@ class NoiseEngine {
         }
         var mono = sum / BAND_COUNT
         if (notch != null) mono = notch.process(mono)
+
+        if (modulationEnabled) {
+            // پوش سینوسی نرم بین (۱ - عمق) و ۱، با نرخ ۱۰ هرتز
+            val envelope = 1.0 - modulationDepth * (0.5 - 0.5 * cos(modPhase))
+            mono *= envelope
+            modPhase += modPhaseIncrement
+            if (modPhase > 2.0 * PI) modPhase -= 2.0 * PI
+        }
+
         return mono
     }
 

@@ -80,6 +80,21 @@
                 android:textStyle="bold"
                 android:layout_marginTop="8dp" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="6dp"
+                android:text="@string/optimize_description"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/optimizeFromAudiogramButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:text="@string/optimize_from_audiogram" />
+
             <LinearLayout
                 android:id="@+id/bandsContainer"
                 android:layout_width="match_parent"
@@ -206,6 +221,55 @@
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:text="@string/notch_disabled_status" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33000000"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- مدولاسیون دامنه ۱۰ هرتز -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/modulation_title"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="10dp"
+                android:text="@string/modulation_description"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/modulation_depth_label" />
+
+            <SeekBar
+                android:id="@+id/modulationDepthSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100" />
+
+            <Button
+                android:id="@+id/toggleModulationButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/enable_modulation" />
+
+            <TextView
+                android:id="@+id/modulationStatusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="12sp"
+                android:textStyle="italic"
+                android:text="@string/modulation_disabled_status" />
 
             <View
                 android:layout_width="match_parent"

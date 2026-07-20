@@ -20,6 +20,7 @@ import com.google.android.material.tabs.TabLayout
 import com.masker.app.audio.NoiseEngine
 import com.masker.app.audio.TonalEngine
 import com.masker.app.audiogram.AudiogramActivity
+import com.masker.app.audiogram.AudiogramNoiseShaper
 import com.masker.app.audiogram.AudiogramStorage
 import com.masker.app.databinding.ActivityMainBinding
 import com.masker.app.databinding.ItemBandSliderBinding
@@ -48,6 +49,13 @@ class MainActivity : AppCompatActivity() {
     private var notchWidthOctaves = 0.5f
     private val notchWidthValues = floatArrayOf(0.5f, 1.0f, 2.0f)
 
+    // ------- مدولاسیون دامنه ۱۰ هرتز - فقط برای تب نویزی -------
+    private var modulationEnabled = false
+    private var modulationDepth = 0.6f
+
+    // ردیف‌های اسلایدر باند نویز، برای امکان به‌روزرسانی برنامه‌ای (مثلاً پس از بهینه‌سازی خودکار)
+    private val bandRowBindings = mutableListOf<ItemBandSliderBinding>()
+
     // ------- مقادیر تب «ماسکر تونال» -------
     private val toneGains = FloatArray(TonalEngine.TONE_COUNT)
     private var tonalMasterVolume = 0.7f
@@ -66,6 +74,8 @@ class MainActivity : AppCompatActivity() {
         setupVolumeSliders()
         setupTonalVolumeSliders()
         setupNotchControls()
+        setupOptimizeButton()
+        setupModulationControls()
         setupButtons()
         setupTabs()
         updateLastAudiogramSummary()
@@ -109,6 +119,11 @@ class MainActivity : AppCompatActivity() {
         notchFrequencyHz = SettingsStorage.loadNotchFrequency(this, 4000.0)
         notchWidthOctaves = SettingsStorage.loadNotchWidth(this, 0.5f)
         PlaybackService.noiseEngine.setNotch(notchEnabled, notchFrequencyHz, notchWidthOctaves)
+
+        modulationEnabled = SettingsStorage.loadModulationEnabled(this)
+        modulationDepth = SettingsStorage.loadModulationDepth(this, 0.6f)
+        PlaybackService.noiseEngine.modulationEnabled = modulationEnabled
+        PlaybackService.noiseEngine.modulationDepth = modulationDepth
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -180,6 +195,7 @@ class MainActivity : AppCompatActivity() {
             })
 
             binding.bandsContainer.addView(rowBinding.root)
+            bandRowBindings.add(rowBinding)
         }
     }
 
@@ -292,6 +308,71 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.notch_enabled_status_format, notchFrequencyHz.toInt().toString(), widthLabel)
         } else {
             getString(R.string.notch_disabled_status)
+        }
+    }
+
+    /**
+     * بهینه‌سازی خودکار شدت ۱۶ باند نویز بر اساس نتیجه آخرین آزمون اودیوگرام کاربر
+     * (ایده «نویز شکل‌داده‌شده بر اساس افت شنوایی» / Enriched Acoustic Environment).
+     */
+    private fun setupOptimizeButton() {
+        binding.optimizeFromAudiogramButton.setOnClickListener {
+            val result = AudiogramStorage.loadLastResult(this)
+            if (result == null) {
+                Toast.makeText(this, R.string.optimize_no_audiogram, Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            val newGains = AudiogramNoiseShaper.computeBandGains(result, NoiseEngine.BAND_FREQUENCIES)
+            for (i in newGains.indices) {
+                if (i >= bandRowBindings.size) break
+                val progress = (newGains[i] * 100).toInt().coerceIn(0, 100)
+                // تنظیم متن باکس عددی هر ردیف، که به‌طور خودکار اسلایدر، آرایه bandGains،
+                // موتور صدا و حافظه ذخیره‌سازی را هم به‌روزرسانی می‌کند (از طریق TextWatcher موجود)
+                bandRowBindings[i].bandEditText.setText(progress.toString())
+            }
+
+            Toast.makeText(this, R.string.optimize_applied_toast, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** تنظیمات مدولاسیون دامنه ۱۰ هرتز (بر پایه پژوهش Neff و همکاران، ۲۰۱۷) */
+    private fun setupModulationControls() {
+        binding.modulationDepthSeekBar.progress = (modulationDepth * 100).toInt()
+        binding.toggleModulationButton.text = getString(
+            if (modulationEnabled) R.string.disable_modulation else R.string.enable_modulation
+        )
+        updateModulationStatusText()
+
+        binding.modulationDepthSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                modulationDepth = progress / 100f
+                PlaybackService.noiseEngine.modulationDepth = modulationDepth
+                SettingsStorage.saveModulationSettings(this@MainActivity, modulationEnabled, modulationDepth)
+                updateModulationStatusText()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.toggleModulationButton.setOnClickListener {
+            modulationEnabled = !modulationEnabled
+            PlaybackService.noiseEngine.modulationEnabled = modulationEnabled
+            SettingsStorage.saveModulationSettings(this, modulationEnabled, modulationDepth)
+            binding.toggleModulationButton.text = getString(
+                if (modulationEnabled) R.string.disable_modulation else R.string.enable_modulation
+            )
+            updateModulationStatusText()
+        }
+    }
+
+    private fun updateModulationStatusText() {
+        binding.modulationStatusText.text = if (modulationEnabled) {
+            val depthPercent = (modulationDepth * 100).toInt().toString()
+            getString(R.string.modulation_enabled_status_format, depthPercent)
+        } else {
+            getString(R.string.modulation_disabled_status)
         }
     }
 
@@ -448,6 +529,8 @@ class MainActivity : AppCompatActivity() {
             PlaybackService.noiseEngine.leftVolume = leftVolume
             PlaybackService.noiseEngine.rightVolume = rightVolume
             PlaybackService.noiseEngine.setNotch(notchEnabled, notchFrequencyHz, notchWidthOctaves)
+            PlaybackService.noiseEngine.modulationEnabled = modulationEnabled
+            PlaybackService.noiseEngine.modulationDepth = modulationDepth
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -526,6 +609,8 @@ class MainActivity : AppCompatActivity() {
                 engine.leftVolume = leftVolume
                 engine.rightVolume = rightVolume
                 engine.setNotch(notchEnabled, notchFrequencyHz, notchWidthOctaves)
+                engine.modulationEnabled = modulationEnabled
+                engine.modulationDepth = modulationDepth
                 engine.renderToFile(outFile, durationSeconds)
             }
 

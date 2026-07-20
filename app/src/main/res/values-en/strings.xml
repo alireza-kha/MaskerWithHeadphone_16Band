@@ -57,6 +57,8 @@
         <item>The &#8220;Audiogram&#8221; tab lets you run a headphone-based hearing test that charts both ears\' hearing; the chart can be saved and shared, but it is not a substitute for a professional hearing assessment.</item>
         <item>In the &#8220;Noise Masker&#8221; tab, the &#8220;Remove Tinnitus Frequency&#8221; section lets you enter your tinnitus pitch (or pull it from your audiogram result) so that exact band is removed from the noise; this is based on notched sound research (Pantev et al.).</item>
         <item>During the audiogram test, use &#8220;Pause Test&#8221; to pause at any time, and &#8220;Resume Test&#8221; to continue right where you left off.</item>
+        <item>The &#8220;Auto-Optimize from Audiogram&#8221; button in the &#8220;Noise Masker&#8221; tab sets each of the 16 band levels based on your latest hearing test result, focusing more noise on the frequencies where you have hearing loss; this approach showed better results than uniform noise in recent research (Cuesta et al., 2022).</item>
+        <item>&#8220;10 Hz Amplitude Modulation&#8221; is another feature in the &#8220;Noise Masker&#8221; tab that applies a gentle intensity oscillation instead of perfectly constant noise, based on Neff et al. (2017).</item>
     </string-array>
 
     <string name="developer_title">About the Developer</string>
@@ -111,6 +113,19 @@
     <string name="notch_no_audiogram">You need to complete a hearing test first (from the Audiogram tab)</string>
     <string name="notch_invalid_frequency">Please enter a valid frequency between 60 and 16000 Hz</string>
     <string name="notch_frequency_from_audiogram_toast">Frequency %1$s Hz retrieved from audiogram result</string>
+
+    <string name="optimize_description">Based on recent research (Cuesta et al., 2022; Fernandez-Ledesma et al., 2025): noise focused more heavily on the frequencies where you have hearing loss has shown better tinnitus-reduction results than plain uniform noise. This button automatically sets each of the 16 band levels based on your latest audiogram result.</string>
+    <string name="optimize_from_audiogram">Auto-Optimize from Audiogram</string>
+    <string name="optimize_no_audiogram">You need to complete a hearing test first (from the Audiogram tab)</string>
+    <string name="optimize_applied_toast">The 16 band levels were adjusted based on your audiogram result</string>
+
+    <string name="modulation_title">10 Hz Amplitude Modulation</string>
+    <string name="modulation_description">Based on Neff et al. (2017) and a 2025 study: noise whose amplitude gently oscillates at a 10 Hz rate (instead of staying perfectly constant) has shown more effective tinnitus suppression.</string>
+    <string name="modulation_depth_label">Modulation Depth</string>
+    <string name="enable_modulation">Enable Amplitude Modulation</string>
+    <string name="disable_modulation">Disable Amplitude Modulation</string>
+    <string name="modulation_disabled_status">Status: Disabled</string>
+    <string name="modulation_enabled_status_format">Status: Enabled — depth %1$s%%</string>
 
     <string-array name="notch_width_options">
         <item>Narrow (half octave)</item>
