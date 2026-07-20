@@ -43,6 +43,22 @@ class NoiseEngine {
     var leftVolume: Float = 1.0f   // ولوم اختصاصی گوش چپ (۰..۱)
     var rightVolume: Float = 1.0f  // ولوم اختصاصی گوش راست (۰..۱)
 
+    // ---- حذف فرکانس وزوز از نویز (Notched Sound، بر پایه پژوهش Pantev et al., 2012) ----
+    var notchEnabled: Boolean = false
+        private set
+    var notchFrequencyHz: Double = 4000.0
+        private set
+    var notchWidthOctaves: Float = 0.5f
+        private set
+
+    /** فعال/غیرفعال کردن و تنظیم پارامترهای فیلتر Notch؛ بلافاصله برای پخش زنده اعمال می‌شود */
+    fun setNotch(enabled: Boolean, frequencyHz: Double, widthOctaves: Float) {
+        notchEnabled = enabled
+        notchFrequencyHz = frequencyHz
+        notchWidthOctaves = widthOctaves
+        liveNotchFilter = if (enabled) NotchFilter(SAMPLE_RATE, frequencyHz, widthOctaves) else null
+    }
+
     @Volatile
     var isPlaying: Boolean = false
         private set
@@ -51,6 +67,7 @@ class NoiseEngine {
     private var audioTrack: AudioTrack? = null
     private var focusRequest: AudioFocusRequest? = null
     private val liveFilters = Array(BAND_COUNT) { BiquadBandPass(SAMPLE_RATE, BAND_FREQUENCIES[it]) }
+    private var liveNotchFilter: NotchFilter? = null
     private val random = Random()
 
     /** شروع پخش زنده صدای ماسکر از بلندگو/هدفون */
@@ -58,6 +75,7 @@ class NoiseEngine {
         if (isPlaying) return
         isPlaying = true
         liveFilters.forEach { it.reset() }
+        liveNotchFilter?.reset()
         if (context != null) requestAudioFocus(context)
         playbackThread = thread(name = "MaskerPlaybackThread") { playLoop() }
     }
@@ -106,13 +124,15 @@ class NoiseEngine {
         }
     }
 
-    private fun buildMonoSample(filters: Array<BiquadBandPass>): Double {
+    private fun buildMonoSample(filters: Array<BiquadBandPass>, notch: NotchFilter?): Double {
         val white = random.nextDouble() * 2.0 - 1.0
         var sum = 0.0
         for (i in 0 until BAND_COUNT) {
             sum += filters[i].process(white) * bandGains[i]
         }
-        return sum / BAND_COUNT
+        var mono = sum / BAND_COUNT
+        if (notch != null) mono = notch.process(mono)
+        return mono
     }
 
     private fun playLoop() {
@@ -165,7 +185,7 @@ class NoiseEngine {
         while (isPlaying) {
             var idx = 0
             for (i in 0 until chunkFrames) {
-                val mono = buildMonoSample(liveFilters) * masterVolume
+                val mono = buildMonoSample(liveFilters, liveNotchFilter) * masterVolume
                 val l = (mono * leftVolume).coerceIn(-1.0, 1.0)
                 val r = (mono * rightVolume).coerceIn(-1.0, 1.0)
                 chunk[idx++] = (l * Short.MAX_VALUE).toInt().toShort()
@@ -182,6 +202,7 @@ class NoiseEngine {
     fun renderToFile(outputFile: File, durationSeconds: Int): Boolean {
         return try {
             val renderFilters = Array(BAND_COUNT) { BiquadBandPass(SAMPLE_RATE, BAND_FREQUENCIES[it]) }
+            val renderNotch = if (notchEnabled) NotchFilter(SAMPLE_RATE, notchFrequencyHz, notchWidthOctaves) else null
             val totalFrames = SAMPLE_RATE * durationSeconds
             val dataBytes = totalFrames * 2 /* channels */ * 2 /* bytes per sample */
 
@@ -190,7 +211,7 @@ class NoiseEngine {
 
                 val frameBuf = ByteArray(4) // 2 bytes L + 2 bytes R
                 for (i in 0 until totalFrames) {
-                    val mono = buildMonoSample(renderFilters) * masterVolume
+                    val mono = buildMonoSample(renderFilters, renderNotch) * masterVolume
                     val l = (mono * leftVolume).coerceIn(-1.0, 1.0)
                     val r = (mono * rightVolume).coerceIn(-1.0, 1.0)
                     val lShort = (l * Short.MAX_VALUE).toInt().toShort()

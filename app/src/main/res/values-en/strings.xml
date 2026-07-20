@@ -55,6 +55,7 @@
         <item>All your settings (16 bands, master volume, left/right volume) are saved automatically; closing and reopening the app restores your last settings.</item>
         <item>The &#8220;Tonal Masker&#8221; tab lets you use pure sine tones at 16 frequencies instead of noise; this mode is better suited for matching your exact tinnitus pitch, and its settings, playback, and saving are completely independent from the &#8220;Noise Masker&#8221; tab.</item>
         <item>The &#8220;Audiogram&#8221; tab lets you run a headphone-based hearing test that charts both ears\' hearing; the chart can be saved and shared, but it is not a substitute for a professional hearing assessment.</item>
+        <item>In the &#8220;Noise Masker&#8221; tab, the &#8220;Remove Tinnitus Frequency&#8221; section lets you enter your tinnitus pitch (or pull it from your audiogram result) so that exact band is removed from the noise; this is based on notched sound research (Pantev et al.).</item>
     </string-array>
 
     <string name="developer_title">About the Developer</string>
@@ -87,4 +88,23 @@
     <string name="audiogram_legend">Red circle = right ear, blue X = left ear. A higher point means that frequency was heard at a quieter level (relatively better hearing).</string>
     <string name="share">Share</string>
     <string name="retake_test">Retake Test</string>
+
+    <string name="notch_title">Remove Tinnitus Frequency from Noise (Notch)</string>
+    <string name="notch_description">Based on notched sound research (Pantev et al., 2012): removing a narrow band exactly at your tinnitus pitch from the noise may reduce tinnitus perception. Note: long-term scientific evidence for this method is still not conclusive; treat it as an experimental option to try.</string>
+    <string name="notch_frequency_hint">Tinnitus Frequency (Hz)</string>
+    <string name="notch_from_audiogram">Get from Audiogram</string>
+    <string name="notch_width_label">Notch Width</string>
+    <string name="enable_notch">Enable Notch</string>
+    <string name="disable_notch">Disable Notch</string>
+    <string name="notch_disabled_status">Status: Disabled</string>
+    <string name="notch_enabled_status_format">Status: Enabled — removing %1$s Hz (width %2$s)</string>
+    <string name="notch_no_audiogram">You need to complete a hearing test first (from the Audiogram tab)</string>
+    <string name="notch_invalid_frequency">Please enter a valid frequency between 60 and 16000 Hz</string>
+    <string name="notch_frequency_from_audiogram_toast">Frequency %1$s Hz retrieved from audiogram result</string>
+
+    <string-array name="notch_width_options">
+        <item>Narrow (half octave)</item>
+        <item>Medium (one octave)</item>
+        <item>Wide (two octaves)</item>
+    </string-array>
 </resources>

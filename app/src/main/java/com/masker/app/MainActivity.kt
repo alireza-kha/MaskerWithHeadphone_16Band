@@ -9,6 +9,7 @@ import android.os.Environment
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -41,6 +42,12 @@ class MainActivity : AppCompatActivity() {
     private var rightVolume = 1.0f
     private var isPlaying = false
 
+    // ------- حذف فرکانس وزوز (Notch) - فقط برای تب نویزی -------
+    private var notchEnabled = false
+    private var notchFrequencyHz = 4000.0
+    private var notchWidthOctaves = 0.5f
+    private val notchWidthValues = floatArrayOf(0.5f, 1.0f, 2.0f)
+
     // ------- مقادیر تب «ماسکر تونال» -------
     private val toneGains = FloatArray(TonalEngine.TONE_COUNT)
     private var tonalMasterVolume = 0.7f
@@ -58,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         buildToneSliders()
         setupVolumeSliders()
         setupTonalVolumeSliders()
+        setupNotchControls()
         setupButtons()
         setupTabs()
         updateLastAudiogramSummary()
@@ -96,6 +104,11 @@ class MainActivity : AppCompatActivity() {
         tonalMasterVolume = SettingsStorage.loadTonalMasterVolume(this, 0.7f)
         tonalLeftVolume = SettingsStorage.loadTonalLeftVolume(this, 1.0f)
         tonalRightVolume = SettingsStorage.loadTonalRightVolume(this, 1.0f)
+
+        notchEnabled = SettingsStorage.loadNotchEnabled(this)
+        notchFrequencyHz = SettingsStorage.loadNotchFrequency(this, 4000.0)
+        notchWidthOctaves = SettingsStorage.loadNotchWidth(this, 0.5f)
+        PlaybackService.noiseEngine.setNotch(notchEnabled, notchFrequencyHz, notchWidthOctaves)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -191,6 +204,95 @@ class MainActivity : AppCompatActivity() {
             PlaybackService.noiseEngine.rightVolume = value
             SettingsStorage.saveRightVolume(this, value)
         })
+    }
+
+    // ==================== حذف فرکانس وزوز (Notch) ====================
+
+    private fun setupNotchControls() {
+        val adapter = ArrayAdapter.createFromResource(
+            this, R.array.notch_width_options, android.R.layout.simple_spinner_item
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.notchWidthSpinner.adapter = adapter
+
+        val savedWidthIndex = notchWidthValues.indexOfFirst { it == notchWidthOctaves }.let { if (it >= 0) it else 0 }
+        binding.notchWidthSpinner.setSelection(savedWidthIndex)
+
+        binding.notchFrequencyEditText.setText(notchFrequencyHz.toInt().toString())
+        binding.toggleNotchButton.text = getString(if (notchEnabled) R.string.disable_notch else R.string.enable_notch)
+        updateNotchStatusText()
+
+        binding.toggleNotchButton.setOnClickListener {
+            if (notchEnabled) {
+                notchEnabled = false
+                PlaybackService.noiseEngine.setNotch(false, notchFrequencyHz, notchWidthOctaves)
+                SettingsStorage.saveNotchSettings(this, false, notchFrequencyHz, notchWidthOctaves)
+                binding.toggleNotchButton.text = getString(R.string.enable_notch)
+                updateNotchStatusText()
+            } else {
+                val freqText = binding.notchFrequencyEditText.text?.toString()?.trim().orEmpty()
+                val freq = freqText.toDoubleOrNull()
+                if (freq == null || freq < 60.0 || freq > 16000.0) {
+                    Toast.makeText(this, R.string.notch_invalid_frequency, Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                val widthIndex = binding.notchWidthSpinner.selectedItemPosition
+                val width = notchWidthValues.getOrElse(widthIndex) { 0.5f }
+
+                notchEnabled = true
+                notchFrequencyHz = freq
+                notchWidthOctaves = width
+                PlaybackService.noiseEngine.setNotch(true, freq, width)
+                SettingsStorage.saveNotchSettings(this, true, freq, width)
+                binding.toggleNotchButton.text = getString(R.string.disable_notch)
+                updateNotchStatusText()
+            }
+        }
+
+        binding.notchFromAudiogramButton.setOnClickListener {
+            val result = AudiogramStorage.loadLastResult(this)
+            if (result == null) {
+                Toast.makeText(this, R.string.notch_no_audiogram, Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            // فرکانسی که بدترین آستانه شنوایی (نیاز به بلندترین صدا) را در هر یک از دو گوش دارد
+            // به‌عنوان برآورد اولیه فرکانس وزوز استفاده می‌شود
+            var suggestedFreq: Double? = null
+            var worstThreshold = Float.POSITIVE_INFINITY
+            for (i in result.frequenciesHz.indices) {
+                val r = result.rightThresholdsDb.getOrNull(i)?.takeIf { !it.isNaN() }
+                val l = result.leftThresholdsDb.getOrNull(i)?.takeIf { !it.isNaN() }
+                val worseOfTwo = listOfNotNull(r, l).minOrNull()
+                if (worseOfTwo != null && worseOfTwo < worstThreshold) {
+                    worstThreshold = worseOfTwo
+                    suggestedFreq = result.frequenciesHz[i]
+                }
+            }
+
+            if (suggestedFreq == null) {
+                Toast.makeText(this, R.string.notch_no_audiogram, Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            binding.notchFrequencyEditText.setText(suggestedFreq.toInt().toString())
+            Toast.makeText(
+                this,
+                getString(R.string.notch_frequency_from_audiogram_toast, suggestedFreq.toInt().toString()),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun updateNotchStatusText() {
+        binding.notchStatusText.text = if (notchEnabled) {
+            val widthLabels = resources.getStringArray(R.array.notch_width_options)
+            val widthIndex = notchWidthValues.indexOfFirst { it == notchWidthOctaves }.coerceAtLeast(0)
+            val widthLabel = widthLabels.getOrElse(widthIndex) { widthLabels[0] }
+            getString(R.string.notch_enabled_status_format, notchFrequencyHz.toInt().toString(), widthLabel)
+        } else {
+            getString(R.string.notch_disabled_status)
+        }
     }
 
     // ==================== تب «ماسکر تونال» ====================
@@ -345,6 +447,7 @@ class MainActivity : AppCompatActivity() {
             PlaybackService.noiseEngine.masterVolume = masterVolume
             PlaybackService.noiseEngine.leftVolume = leftVolume
             PlaybackService.noiseEngine.rightVolume = rightVolume
+            PlaybackService.noiseEngine.setNotch(notchEnabled, notchFrequencyHz, notchWidthOctaves)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -422,6 +525,7 @@ class MainActivity : AppCompatActivity() {
                 engine.masterVolume = masterVolume
                 engine.leftVolume = leftVolume
                 engine.rightVolume = rightVolume
+                engine.setNotch(notchEnabled, notchFrequencyHz, notchWidthOctaves)
                 engine.renderToFile(outFile, durationSeconds)
             }
 

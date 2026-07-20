@@ -19,6 +19,10 @@ object SettingsStorage {
     private const val KEY_TONAL_LEFT = "tonal_left_volume"
     private const val KEY_TONAL_RIGHT = "tonal_right_volume"
 
+    private const val KEY_NOTCH_ENABLED = "notch_enabled"
+    private const val KEY_NOTCH_FREQUENCY = "notch_frequency"
+    private const val KEY_NOTCH_WIDTH = "notch_width"
+
     fun saveBandGain(context: Context, index: Int, value: Float) {
         prefs(context).edit().putFloat(KEY_BAND_PREFIX + index, value).apply()
     }
@@ -83,6 +87,28 @@ object SettingsStorage {
 
     fun loadTonalRightVolume(context: Context, default: Float): Float {
         return prefs(context).getFloat(KEY_TONAL_RIGHT, default)
+    }
+
+    // ---- تنظیمات حذف فرکانس وزوز (Notch) ----
+
+    fun saveNotchSettings(context: Context, enabled: Boolean, frequencyHz: Double, widthOctaves: Float) {
+        prefs(context).edit()
+            .putBoolean(KEY_NOTCH_ENABLED, enabled)
+            .putFloat(KEY_NOTCH_FREQUENCY, frequencyHz.toFloat())
+            .putFloat(KEY_NOTCH_WIDTH, widthOctaves)
+            .apply()
+    }
+
+    fun loadNotchEnabled(context: Context): Boolean {
+        return prefs(context).getBoolean(KEY_NOTCH_ENABLED, false)
+    }
+
+    fun loadNotchFrequency(context: Context, default: Double): Double {
+        return prefs(context).getFloat(KEY_NOTCH_FREQUENCY, default.toFloat()).toDouble()
+    }
+
+    fun loadNotchWidth(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_NOTCH_WIDTH, default)
     }
 
     private fun prefs(context: Context) =
