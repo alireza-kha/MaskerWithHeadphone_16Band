@@ -15,7 +15,9 @@ import androidx.core.content.FileProvider
 import com.masker.app.R
 import com.masker.app.databinding.ActivityAudiogramBinding
 import com.masker.app.report.PatientReport
+import com.masker.app.report.ReportQueueStorage
 import com.masker.app.report.ReportSendManager
+import com.masker.app.report.SheetsReportSender
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -272,9 +274,22 @@ class AudiogramActivity : AppCompatActivity() {
             leftTinnitusScore = leftScore,
             rightTinnitusScore = rightScore
         )
-        ReportSendManager.sendOrQueue(this, report) { _ ->
+
+        if (!SheetsReportSender.isConfigured()) {
+            // آدرس مقصد گزارش هنوز در local.properties تنظیم نشده؛ فقط محلی ذخیره می‌شود
+            ReportQueueStorage.enqueue(this, report)
+            Toast.makeText(this, R.string.report_not_configured_message, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        ReportSendManager.sendOrQueue(this, report) { success ->
             runOnUiThread {
-                Toast.makeText(this, R.string.report_sent_message, Toast.LENGTH_LONG).show()
+                val message = if (success) {
+                    getString(R.string.report_sent_message)
+                } else {
+                    getString(R.string.report_queued_message)
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             }
         }
     }

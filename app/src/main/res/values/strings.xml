@@ -120,6 +120,8 @@
     <string name="tinnitus_score_dialog_message">همین الان، به وزوز هر گوش چه نمره‌ای از ۰ (اصلاً آزاردهنده نیست) تا ۱۰ (شدیدترین حالت) می‌دهید؟</string>
     <string name="tinnitus_score_hint">۰ تا ۱۰</string>
     <string name="report_sent_message">اطلاعات جهت بررسی‌های آزمایشگاهی و بهبود نرم‌افزار ارسال شد و محرمانه نزد سازنده خواهد ماند</string>
+    <string name="report_queued_message">اینترنت در دسترس نبود؛ اطلاعات ذخیره شد و در اولین باز شدن بعدی برنامه با اینترنت، خودکار ارسال خواهد شد</string>
+    <string name="report_not_configured_message">آدرس مقصد گزارش هنوز در local.properties تنظیم نشده؛ اطلاعات فقط به‌صورت محلی ذخیره شد (به README پروژه مراجعه کنید)</string>
 
     <string name="patient_name_hint">نام و نام خانوادگی</string>
     <string name="patient_age_hint">سن</string>

@@ -120,6 +120,8 @@
     <string name="tinnitus_score_dialog_message">Right now, what score from 0 (not bothersome at all) to 10 (most severe) would you give each ear\'s tinnitus?</string>
     <string name="tinnitus_score_hint">0 to 10</string>
     <string name="report_sent_message">The information was sent for lab review and software improvement, and will remain confidential with the developer</string>
+    <string name="report_queued_message">No internet connection was available; the information was saved and will be sent automatically the next time the app opens with internet access</string>
+    <string name="report_not_configured_message">The report destination hasn\'t been set up yet in local.properties; the information was only saved locally (see the project README)</string>
 
     <string name="patient_name_hint">Full Name</string>
     <string name="patient_age_hint">Age</string>
