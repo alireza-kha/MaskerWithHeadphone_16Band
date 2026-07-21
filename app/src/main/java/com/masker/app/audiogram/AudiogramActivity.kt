@@ -248,21 +248,26 @@ class AudiogramActivity : AppCompatActivity() {
      * بهبود نرم‌افزار برای سازنده ارسال (یا در صورت نبود اینترنت، برای ارسال بعدی ذخیره) می‌شود.
      */
     private fun showTinnitusScoreDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_tinnitus_score, null)
-        val leftScoreEditText = dialogView.findViewById<EditText>(R.id.leftScoreEditText)
-        val rightScoreEditText = dialogView.findViewById<EditText>(R.id.rightScoreEditText)
+        try {
+            val dialogView = layoutInflater.inflate(R.layout.dialog_tinnitus_score, null)
+            val leftScoreEditText = dialogView.findViewById<EditText>(R.id.leftScoreEditText)
+            val rightScoreEditText = dialogView.findViewById<EditText>(R.id.rightScoreEditText)
 
-        AlertDialog.Builder(this)
-            .setTitle(R.string.tinnitus_score_dialog_title)
-            .setView(dialogView)
-            .setCancelable(true)
-            .setPositiveButton(R.string.submit) { _, _ ->
-                val left = leftScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
-                val right = rightScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
-                sendCheckpointReport(left, right)
-            }
-            .setNegativeButton(R.string.skip, null)
-            .show()
+            AlertDialog.Builder(this)
+                .setTitle(R.string.tinnitus_score_dialog_title)
+                .setView(dialogView)
+                .setCancelable(true)
+                .setPositiveButton(R.string.submit) { _, _ ->
+                    val left = leftScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
+                    val right = rightScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
+                    sendCheckpointReport(left, right)
+                }
+                .setNegativeButton(R.string.skip, null)
+                .show()
+        } catch (e: Exception) {
+            android.util.Log.e("AudiogramActivity", "Failed to show tinnitus score dialog", e)
+            Toast.makeText(this, "خطا در نمایش پنجره امتیاز: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun sendCheckpointReport(leftScore: Int?, rightScore: Int?) {
