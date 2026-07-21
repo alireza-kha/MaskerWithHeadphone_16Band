@@ -6,6 +6,13 @@ import org.json.JSONObject
 /**
  * نتیجه یک آزمون شنوایی کامل: آستانه شنوایی هر گوش در فرکانس‌های استاندارد آزمون،
  * به‌همراه اطلاعات فرد آزمون‌شونده (نام و سن) و تاریخ آزمون.
+ *
+ * علاوه بر آستانه‌های معمول (بدون ماسک)، به‌صورت اختیاری آستانه‌های «ماسک‌شده» هم نگه
+ * داشته می‌شوند: این‌ها زمانی ثبت می‌شوند که کاربر بررسی «اثر سایه» (Cross-hearing /
+ * Shadow Curve) را هم انجام داده باشد — یعنی همان آزمون، این‌بار با پخش نویز ماسک‌کننده
+ * در گوش مقابل، تکرار شده تا از دخالت گوش مقابل در نتیجه جلوگیری شود. این دقیقاً همان
+ * روش استاندارد ماسکینگ در اودیومتری بالینی است.
+ *
  * مقادیر threshold بر حسب "dB کاهش نسبت به حداکثر خروجی دستگاه" هستند (مقیاس نسبی و
  * غیرکالیبره، نه dB HL بالینی). مقدار Float.NaN یعنی حتی در بلندترین سطح هم پاسخی ثبت نشد.
  */
@@ -15,7 +22,9 @@ data class AudiogramResult(
     val leftThresholdsDb: FloatArray,
     val timestampMillis: Long,
     val patientName: String = "",
-    val patientAge: Int = 0
+    val patientAge: Int = 0,
+    val rightMaskedThresholdsDb: FloatArray? = null,
+    val leftMaskedThresholdsDb: FloatArray? = null
 ) {
     fun toJson(): JSONObject {
         val obj = JSONObject()
@@ -27,15 +36,19 @@ data class AudiogramResult(
         for (f in frequenciesHz) freqArr.put(f)
         obj.put("frequencies", freqArr)
 
-        val rightArr = JSONArray()
-        for (v in rightThresholdsDb) rightArr.put(if (v.isNaN()) JSONObject.NULL else v.toDouble())
-        obj.put("right", rightArr)
+        obj.put("right", floatArrayToJson(rightThresholdsDb))
+        obj.put("left", floatArrayToJson(leftThresholdsDb))
 
-        val leftArr = JSONArray()
-        for (v in leftThresholdsDb) leftArr.put(if (v.isNaN()) JSONObject.NULL else v.toDouble())
-        obj.put("left", leftArr)
+        rightMaskedThresholdsDb?.let { obj.put("rightMasked", floatArrayToJson(it)) }
+        leftMaskedThresholdsDb?.let { obj.put("leftMasked", floatArrayToJson(it)) }
 
         return obj
+    }
+
+    private fun floatArrayToJson(arr: FloatArray): JSONArray {
+        val jsonArr = JSONArray()
+        for (v in arr) jsonArr.put(if (v.isNaN()) JSONObject.NULL else v.toDouble())
+        return jsonArr
     }
 
     companion object {
@@ -50,23 +63,22 @@ data class AudiogramResult(
                 for (i in 0 until freqArr.length()) frequencies.add(freqArr.optDouble(i))
             }
 
-            val rightArr = obj.optJSONArray("right")
-            val right = FloatArray(frequencies.size) { Float.NaN }
-            if (rightArr != null) {
-                for (i in 0 until minOf(right.size, rightArr.length())) {
-                    right[i] = if (rightArr.isNull(i)) Float.NaN else rightArr.optDouble(i).toFloat()
+            val right = jsonToFloatArray(obj.optJSONArray("right"), frequencies.size)
+            val left = jsonToFloatArray(obj.optJSONArray("left"), frequencies.size)
+            val rightMasked = if (obj.has("rightMasked")) jsonToFloatArray(obj.optJSONArray("rightMasked"), frequencies.size) else null
+            val leftMasked = if (obj.has("leftMasked")) jsonToFloatArray(obj.optJSONArray("leftMasked"), frequencies.size) else null
+
+            return AudiogramResult(frequencies, right, left, timestamp, patientName, patientAge, rightMasked, leftMasked)
+        }
+
+        private fun jsonToFloatArray(arr: JSONArray?, size: Int): FloatArray {
+            val result = FloatArray(size) { Float.NaN }
+            if (arr != null) {
+                for (i in 0 until minOf(size, arr.length())) {
+                    result[i] = if (arr.isNull(i)) Float.NaN else arr.optDouble(i).toFloat()
                 }
             }
-
-            val leftArr = obj.optJSONArray("left")
-            val left = FloatArray(frequencies.size) { Float.NaN }
-            if (leftArr != null) {
-                for (i in 0 until minOf(left.size, leftArr.length())) {
-                    left[i] = if (leftArr.isNull(i)) Float.NaN else leftArr.optDouble(i).toFloat()
-                }
-            }
-
-            return AudiogramResult(frequencies, right, left, timestamp, patientName, patientAge)
+            return result
         }
     }
 }

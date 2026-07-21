@@ -6,10 +6,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Environment
-import android.os.Handler
-import android.os.Looper
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.masker.app.R
@@ -21,34 +20,43 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * فعالیت آزمون شنوایی (اودیوگرام). سه مرحله دارد: معرفی/تنظیم ولوم، انجام آزمون (پخش تن
- * و دریافت پاسخ کاربر برای هر گوش/فرکانس)، و نمایش نتیجه به‌صورت نمودار قابل ذخیره و اشتراک‌گذاری.
+ * فعالیت آزمون شنوایی (اودیوگرام). سه مرحله دارد: معرفی/تنظیم ولوم، انجام آزمون (پخش
+ * پیوسته تن و دریافت پاسخ کاربر با دو دکمه «می‌شنوم»/«نمی‌شنوم» برای هر گوش/فرکانس)، و
+ * نمایش نتیجه به‌صورت نمودار قابل ذخیره و اشتراک‌گذاری.
+ *
+ * پس از پایان آزمون معمولی، از کاربر پرسیده می‌شود که آیا مایل است «اثر سایه»
+ * (Cross-hearing) هم بررسی شود؛ در صورت تأیید، همان آزمون یک‌بار دیگر تکرار می‌شود، این‌بار
+ * با پخش هم‌زمان نویز ماسک‌کننده در گوش مقابل — دقیقاً همان روش استاندارد ماسکینگ در
+ * اودیومتری بالینی. نتایج ماسک‌شده با نمادهای استاندارد اودیولوژی (مثلث/مربع) رسم می‌شوند.
+ *
+ * همچنین می‌تواند در «حالت نمایش» باز شود (از صفحه سوابق) تا آخرین نتیجه ذخیره‌شده یک فرد
+ * را مستقیماً نشان دهد، بدون نیاز به اجرای آزمون جدید.
  */
 class AudiogramActivity : AppCompatActivity() {
 
     companion object {
         // فرکانس‌های استاندارد غربالگری شنوایی (بر اساس دستورالعمل‌های رایج علمی/بالینی)
         val TEST_FREQUENCIES = listOf(250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0)
-        private const val TONE_DURATION_MS = 1200
-        private const val RESPONSE_WINDOW_MS = 2200L
+
+        // سطح نویز ماسک‌کننده در گوش مقابل، هنگام بررسی اثر سایه (مقیاس نسبی ساده‌شده)
+        private const val MASKING_ATTENUATION_DB = 15f
+
+        const val EXTRA_VIEW_PATIENT_NAME = "extra_view_patient_name"
     }
 
     private lateinit var binding: ActivityAudiogramBinding
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var pendingTimeoutRunnable: Runnable? = null
-    private var controller: HearingTestController? = null
-    private var lastResult: AudiogramResult? = null
-    private var waitingForResponse = false
 
-    // برای امکان توقف موقت و ادامه آزمون: آخرین کارآزمایی (trial) در حال انجام را نگه می‌داریم
-    // تا بتوانیم پس از «ادامه»، همان تن را دوباره از ابتدا پخش کنیم
+    private var controller: HearingTestController? = null
     private var isPaused = false
+    private var isMaskedPhase = false
+
     private var pendingEar: Ear? = null
     private var pendingFreqHz: Double = 0.0
     private var pendingAttenuation: Float = 0f
 
     private var patientName: String = ""
     private var patientAge: Int = 0
+    private var pendingUnmaskedResult: AudiogramResult? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,16 +64,34 @@ class AudiogramActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.playCalibrationToneButton.setOnClickListener {
-            HearingTestTonePlayer.playTone(this, Ear.BOTH, 1000.0, attenuationDb = 20f, durationMs = 2500) {}
+            HearingTestTonePlayer.playBrief(this, Ear.BOTH, 1000.0, attenuationDb = 20f, durationMs = 2500) {}
         }
 
         binding.startTestButton.setOnClickListener { startTest() }
-        binding.heardButton.setOnClickListener { onUserRespondedHeard() }
+        binding.viewHistoryButton.setOnClickListener {
+            startActivity(Intent(this, AudiogramHistoryActivity::class.java))
+        }
+
+        binding.hearButton.setOnClickListener { onUserResponded(true) }
+        binding.dontHearButton.setOnClickListener { onUserResponded(false) }
         binding.pauseResumeButton.setOnClickListener { onPauseResumeClicked() }
+
         binding.retakeTestButton.setOnClickListener { showIntroSection() }
         binding.saveAudiogramButton.setOnClickListener { saveAudiogramImage(share = false) }
         binding.shareAudiogramButton.setOnClickListener { saveAudiogramImage(share = true) }
+
+        val viewPatientName = intent.getStringExtra(EXTRA_VIEW_PATIENT_NAME)
+        if (viewPatientName != null) {
+            val stored = AudiogramStorage.loadLatestResultForPatient(this, viewPatientName)
+            if (stored != null) {
+                binding.patientNameEditText.setText(stored.patientName)
+                binding.patientAgeEditText.setText(stored.patientAge.toString())
+                showStoredResult(stored)
+            }
+        }
     }
+
+    // ==================== شروع و اجرای آزمون ====================
 
     private fun startTest() {
         val name = binding.patientNameEditText.text?.toString()?.trim().orEmpty()
@@ -81,6 +107,16 @@ class AudiogramActivity : AppCompatActivity() {
         patientName = name
         patientAge = age
 
+        runTestPhase(masked = false) { result ->
+            pendingUnmaskedResult = result.copy(patientName = patientName, patientAge = patientAge)
+            askCrossHearingQuestion()
+        }
+    }
+
+    private fun runTestPhase(masked: Boolean, onDone: (AudiogramResult) -> Unit) {
+        isMaskedPhase = masked
+        binding.testMaskingBadge.visibility = if (masked) View.VISIBLE else View.GONE
+
         isPaused = false
         binding.pauseResumeButton.text = getString(R.string.pause_test)
         binding.pausedStatusText.visibility = View.GONE
@@ -93,10 +129,43 @@ class AudiogramActivity : AppCompatActivity() {
             frequenciesHz = TEST_FREQUENCIES,
             onPlayTone = { ear, freqHz, attenuationDb -> playTestTone(ear, freqHz, attenuationDb) },
             onProgress = { ear, freqIndex, totalFreq -> updateProgress(ear, freqIndex, totalFreq) },
-            onFinished = { result -> onTestFinished(result) }
+            onFinished = { result -> onDone(result) }
         )
         controller = newController
         newController.start()
+    }
+
+    private fun askCrossHearingQuestion() {
+        binding.testSection.visibility = View.GONE
+        AlertDialog.Builder(this)
+            .setTitle(R.string.cross_hearing_dialog_title)
+            .setMessage(R.string.cross_hearing_dialog_message)
+            .setCancelable(false)
+            .setPositiveButton(R.string.yes) { _, _ -> runMaskedPhase() }
+            .setNegativeButton(R.string.no) { _, _ ->
+                pendingUnmaskedResult?.let { finalizeAndShow(it) }
+            }
+            .show()
+    }
+
+    private fun runMaskedPhase() {
+        runTestPhase(masked = true) { maskedResult ->
+            val combined = pendingUnmaskedResult?.copy(
+                rightMaskedThresholdsDb = maskedResult.rightThresholdsDb,
+                leftMaskedThresholdsDb = maskedResult.leftThresholdsDb
+            )
+            combined?.let { finalizeAndShow(it) }
+        }
+    }
+
+    private fun finalizeAndShow(result: AudiogramResult) {
+        AudiogramStorage.saveResult(this, result)
+
+        binding.testSection.visibility = View.GONE
+        binding.resultSection.visibility = View.VISIBLE
+        binding.audiogramView.setResult(result)
+        updatePatientInfoText(result)
+        updateLegendText(result)
     }
 
     private fun updateProgress(ear: Ear, freqIndex: Int, totalFreq: Int) {
@@ -115,33 +184,26 @@ class AudiogramActivity : AppCompatActivity() {
         pendingFreqHz = freqHz
         pendingAttenuation = attenuationDb
 
-        waitingForResponse = false
-        binding.heardButton.isEnabled = false
+        binding.hearButton.isEnabled = true
+        binding.dontHearButton.isEnabled = true
 
-        HearingTestTonePlayer.playTone(this, ear, freqHz, attenuationDb, TONE_DURATION_MS) {
-            // اگر کاربر در همین حین آزمون را موقتاً متوقف کرده باشد، پنجره پاسخ باز نمی‌شود؛
-            // با زدن «ادامه» همین کارآزمایی دوباره از ابتدا پخش خواهد شد
-            if (isPaused) return@playTone
+        HearingTestTonePlayer.start(
+            this, ear, freqHz, attenuationDb,
+            maskingEnabled = isMaskedPhase,
+            maskingAttenuationDb = MASKING_ATTENUATION_DB
+        )
+    }
 
-            // پس از پایان پخش، پنجره زمانی برای دریافت پاسخ باز می‌شود
-            waitingForResponse = true
-            binding.heardButton.isEnabled = true
-
-            val timeoutRunnable = Runnable {
-                if (waitingForResponse) {
-                    waitingForResponse = false
-                    binding.heardButton.isEnabled = false
-                    controller?.onResponse(false)
-                }
-            }
-            pendingTimeoutRunnable = timeoutRunnable
-            mainHandler.postDelayed(timeoutRunnable, RESPONSE_WINDOW_MS)
-        }
+    private fun onUserResponded(heard: Boolean) {
+        if (isPaused) return
+        HearingTestTonePlayer.stop()
+        binding.hearButton.isEnabled = false
+        binding.dontHearButton.isEnabled = false
+        controller?.onResponse(heard)
     }
 
     private fun onPauseResumeClicked() {
         if (isPaused) {
-            // ادامه: همان کارآزمایی متوقف‌شده را دوباره از ابتدا پخش می‌کنیم
             isPaused = false
             binding.pauseResumeButton.text = getString(R.string.pause_test)
             binding.pausedStatusText.visibility = View.GONE
@@ -152,32 +214,43 @@ class AudiogramActivity : AppCompatActivity() {
             }
         } else {
             isPaused = true
-            waitingForResponse = false
-            binding.heardButton.isEnabled = false
-            pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+            HearingTestTonePlayer.stop()
+            binding.hearButton.isEnabled = false
+            binding.dontHearButton.isEnabled = false
 
             binding.pauseResumeButton.text = getString(R.string.resume_test)
             binding.pausedStatusText.visibility = View.VISIBLE
         }
     }
 
-    private fun onUserRespondedHeard() {
-        if (!waitingForResponse || isPaused) return
-        waitingForResponse = false
-        binding.heardButton.isEnabled = false
-        pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
-        controller?.onResponse(true)
-    }
+    private fun showIntroSection() {
+        HearingTestTonePlayer.stop()
+        isPaused = false
+        pendingEar = null
+        controller = null
+        isMaskedPhase = false
+        pendingUnmaskedResult = null
 
-    private fun onTestFinished(result: AudiogramResult) {
-        val fullResult = result.copy(patientName = patientName, patientAge = patientAge)
-        lastResult = fullResult
-        AudiogramStorage.saveLastResult(this, fullResult)
+        binding.pauseResumeButton.text = getString(R.string.pause_test)
+        binding.pausedStatusText.visibility = View.GONE
+        binding.testMaskingBadge.visibility = View.GONE
 
         binding.testSection.visibility = View.GONE
+        binding.resultSection.visibility = View.GONE
+        binding.introSection.visibility = View.VISIBLE
+    }
+
+    private fun showStoredResult(result: AudiogramResult) {
+        binding.introSection.visibility = View.GONE
+        binding.testSection.visibility = View.GONE
         binding.resultSection.visibility = View.VISIBLE
-        binding.audiogramView.setResult(fullResult)
-        updatePatientInfoText(fullResult)
+        binding.audiogramView.setResult(result)
+        updatePatientInfoText(result)
+        updateLegendText(result)
+    }
+
+    private fun formatFrequencyLabel(freqHz: Double): String {
+        return if (freqHz >= 1000) "${(freqHz / 1000).toInt()} کیلوهرتز" else "${freqHz.toInt()} هرتز"
     }
 
     private fun updatePatientInfoText(result: AudiogramResult) {
@@ -190,24 +263,14 @@ class AudiogramActivity : AppCompatActivity() {
         )
     }
 
-    private fun showIntroSection() {
-        pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
-        waitingForResponse = false
-        isPaused = false
-        pendingEar = null
-        controller = null
-
-        binding.pauseResumeButton.text = getString(R.string.pause_test)
-        binding.pausedStatusText.visibility = View.GONE
-
-        binding.testSection.visibility = View.GONE
-        binding.resultSection.visibility = View.GONE
-        binding.introSection.visibility = View.VISIBLE
+    private fun updateLegendText(result: AudiogramResult) {
+        val hasMasked = result.rightMaskedThresholdsDb != null || result.leftMaskedThresholdsDb != null
+        binding.legendText.text = getString(
+            if (hasMasked) R.string.audiogram_legend_with_masked else R.string.audiogram_legend
+        )
     }
 
-    private fun formatFrequencyLabel(freqHz: Double): String {
-        return if (freqHz >= 1000) "${(freqHz / 1000).toInt()} کیلوهرتز" else "${freqHz.toInt()} هرتز"
-    }
+    // ==================== ذخیره و اشتراک‌گذاری تصویر ====================
 
     private fun renderResultBitmap(): Bitmap? {
         val view = binding.resultCaptureContainer
@@ -255,7 +318,7 @@ class AudiogramActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        HearingTestTonePlayer.stop()
         super.onDestroy()
     }
 }

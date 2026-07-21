@@ -54,7 +54,8 @@
         <item>Use &#8220;Playback Schedule&#8221; to set start/end times and days of the week for automatic playback (e.g. every night while you sleep).</item>
         <item>All your settings (16 bands, master volume, left/right volume) are saved automatically; closing and reopening the app restores your last settings.</item>
         <item>The &#8220;Tonal Masker&#8221; tab lets you use pure sine tones at 16 frequencies instead of noise; this mode is better suited for matching your exact tinnitus pitch, and its settings, playback, and saving are completely independent from the &#8220;Noise Masker&#8221; tab.</item>
-        <item>The &#8220;Audiogram&#8221; tab lets you run a headphone-based hearing test that charts both ears\' hearing; the chart can be saved and shared, but it is not a substitute for a professional hearing assessment.</item>
+        <item>The &#8220;Audiogram&#8221; tab lets you run a hearing test using headphones. The tone plays continuously; tap &#8220;I Hear It&#8221; as soon as you hear it, or &#8220;I Don\'t Hear It&#8221; once you&#8217;re sure there&#8217;s no sound. After the test, you can also run a cross-hearing check using masking noise in the opposite ear. The result is a chart you can save and share, but it&#8217;s not a substitute for a professional hearing assessment.</item>
+        <item>The &#8220;View Previous Records&#8221; button on the Audiogram screen lets you select a person&#8217;s name to see, save, or share their latest saved test result — every past test for each person is kept in the app.</item>
         <item>In the &#8220;Noise Masker&#8221; tab, the &#8220;Remove Tinnitus Frequency&#8221; section lets you enter your tinnitus pitch (or pull it from your audiogram result) so that exact band is removed from the noise; this is based on notched sound research (Pantev et al.).</item>
         <item>During the audiogram test, use &#8220;Pause Test&#8221; to pause at any time, and &#8220;Resume Test&#8221; to continue right where you left off.</item>
         <item>The &#8220;Auto-Optimize from Audiogram&#8221; button in the &#8220;Noise Masker&#8221; tab sets each of the 16 band levels based on your latest hearing test result, focusing more noise on the frequencies where you have hearing loss; this approach showed better results than uniform noise in recent research (Cuesta et al., 2022).</item>
@@ -94,6 +95,23 @@
     <string name="pause_test">Pause Test</string>
     <string name="resume_test">Resume Test</string>
     <string name="test_paused_status">Test is paused</string>
+
+    <string name="i_hear_it">I Hear It</string>
+    <string name="i_dont_hear_it">I Don\'t Hear It</string>
+    <string name="masking_phase_badge">Cross-hearing check phase (masking noise in opposite ear)</string>
+
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="cross_hearing_dialog_title">Cross-hearing Check</string>
+    <string name="cross_hearing_dialog_message">Would you like to repeat the test once more, this time with masking noise played in the opposite ear? This helps confirm the sound was really heard by that ear (not the other one) and is a standard technique in clinical hearing tests. It will take about 2-3 more minutes.</string>
+
+    <string name="audiogram_legend_with_masked">Red circle = right ear (unmasked), blue X = left ear (unmasked), red triangle = right ear (masked), blue square = left ear (masked). A higher point means that frequency was heard at a quieter level (relatively better hearing).</string>
+
+    <string name="view_history">View Previous Records</string>
+    <string name="history_title">Saved Test Records</string>
+    <string name="search_name_hint">Search by name</string>
+    <string name="history_empty">No tests saved yet</string>
+    <string name="patient_meta_format">Age: %1$d — Last test: %2$s — Tests: %3$d</string>
 
     <string name="patient_name_hint">Full Name</string>
     <string name="patient_age_hint">Age</string>

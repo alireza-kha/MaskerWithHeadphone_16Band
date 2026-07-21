@@ -3,6 +3,7 @@ package com.masker.app.audiogram
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
@@ -11,13 +12,20 @@ import kotlin.math.ln
 
 /**
  * رسم اودیوگرام: محور افقی فرکانس (مقیاس لگاریتمی، مطابق استاندارد اودیوگرام‌های بالینی)
- * و محور عمودی سطح شنوایی نسبی. گوش راست با دایره قرمز و گوش چپ با ضربدر آبی نمایش
- * داده می‌شود (رنگ‌بندی متعارف در اودیوگرام‌های بالینی).
+ * و محور عمودی سطح شنوایی نسبی.
+ *
+ * نمادها مطابق قرارداد متعارف در اودیوگرام‌های بالینی رسم می‌شوند:
+ *  - گوش راست، بدون ماسک: دایره قرمز (○)
+ *  - گوش چپ، بدون ماسک: ضربدر آبی (×)
+ *  - گوش راست، با ماسک (بررسی اثر سایه): مثلث قرمز (△)
+ *  - گوش چپ، با ماسک (بررسی اثر سایه): مربع آبی (□)
  */
 class AudiogramView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
+
+    private enum class Symbol { CIRCLE, CROSS, TRIANGLE, SQUARE }
 
     private var result: AudiogramResult? = null
 
@@ -45,6 +53,18 @@ class AudiogramView @JvmOverloads constructor(
         color = Color.BLUE
         strokeWidth = 4f
         style = Paint.Style.STROKE
+    }
+    private val rightMaskedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.RED
+        strokeWidth = 4f
+        style = Paint.Style.STROKE
+        pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+    }
+    private val leftMaskedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLUE
+        strokeWidth = 4f
+        style = Paint.Style.STROKE
+        pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
     }
 
     private val marginLeft = 90f
@@ -95,8 +115,15 @@ class AudiogramView @JvmOverloads constructor(
             canvas.drawText(label, x, chartBottom + 40f, textPaint)
         }
 
-        drawEarLine(canvas, r.frequenciesHz, r.rightThresholdsDb, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, rightPaint, isRight = true)
-        drawEarLine(canvas, r.frequenciesHz, r.leftThresholdsDb, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, leftPaint, isRight = false)
+        drawEarLine(canvas, r.frequenciesHz, r.rightThresholdsDb, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, rightPaint, Symbol.CIRCLE)
+        drawEarLine(canvas, r.frequenciesHz, r.leftThresholdsDb, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, leftPaint, Symbol.CROSS)
+
+        r.rightMaskedThresholdsDb?.let {
+            drawEarLine(canvas, r.frequenciesHz, it, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, rightMaskedPaint, Symbol.TRIANGLE)
+        }
+        r.leftMaskedThresholdsDb?.let {
+            drawEarLine(canvas, r.frequenciesHz, it, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, leftMaskedPaint, Symbol.SQUARE)
+        }
     }
 
     private fun drawEarLine(
@@ -110,11 +137,11 @@ class AudiogramView @JvmOverloads constructor(
         chartTop: Float,
         chartBottom: Float,
         paint: Paint,
-        isRight: Boolean
+        symbol: Symbol
     ) {
         val path = Path()
         var started = false
-        val symbolRadius = 14f
+        val r = 14f
 
         for (i in frequencies.indices) {
             val level = thresholds.getOrNull(i) ?: continue
@@ -130,11 +157,29 @@ class AudiogramView @JvmOverloads constructor(
                 path.lineTo(x, y)
             }
 
-            if (isRight) {
-                canvas.drawCircle(x, y, symbolRadius, paint)
-            } else {
-                canvas.drawLine(x - symbolRadius, y - symbolRadius, x + symbolRadius, y + symbolRadius, paint)
-                canvas.drawLine(x - symbolRadius, y + symbolRadius, x + symbolRadius, y - symbolRadius, paint)
+            when (symbol) {
+                Symbol.CIRCLE -> canvas.drawCircle(x, y, r, paint)
+                Symbol.CROSS -> {
+                    canvas.drawLine(x - r, y - r, x + r, y + r, paint)
+                    canvas.drawLine(x - r, y + r, x + r, y - r, paint)
+                }
+                Symbol.TRIANGLE -> {
+                    val trianglePath = Path()
+                    trianglePath.moveTo(x, y - r)
+                    trianglePath.lineTo(x - r, y + r)
+                    trianglePath.lineTo(x + r, y + r)
+                    trianglePath.close()
+                    val fillPaint = Paint(paint)
+                    fillPaint.style = Paint.Style.STROKE
+                    fillPaint.pathEffect = null
+                    canvas.drawPath(trianglePath, fillPaint)
+                }
+                Symbol.SQUARE -> {
+                    val squarePaint = Paint(paint)
+                    squarePaint.style = Paint.Style.STROKE
+                    squarePaint.pathEffect = null
+                    canvas.drawRect(x - r, y - r, x + r, y + r, squarePaint)
+                }
             }
         }
 
