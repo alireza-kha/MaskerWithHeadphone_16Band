@@ -20,28 +20,33 @@ enum class Ear {
 }
 
 /**
- * پخش پیوسته (تا زمان توقف صریح) یک تن خالص در یک گوش، برای استفاده در آزمون شنوایی.
- * برخلاف نسخه قبلی که یک بار کوتاه پخش می‌شد، اینجا صدا مرتب و بدون قطعی ادامه پیدا می‌کند
- * تا کاربر با فرصت کافی یکی از دو دکمه «می‌شنوم» / «نمی‌شنوم» را بزند.
+ * پخش تن خالص برای آزمون شنوایی، به‌صورت «بیپ‌بیپ» (پالسی، مطابق روش متداول اودیومتری
+ * بالینی که در آن تن به‌صورت پیوسته نیست بلکه در پالس‌های کوتاه پخش می‌شود) تا زمان توقف
+ * صریح، تا کاربر با فرصت کافی یکی از دو دکمه «می‌شنوم» / «نمی‌شنوم» را بزند.
  *
- * همچنین امکان پخش هم‌زمان نویز باریک‌باند ماسک‌کننده در گوش مقابل را دارد — دقیقاً همان
- * روش استاندارد ماسکینگ در اودیومتری بالینی برای بررسی «اثر سایه» (Cross-hearing)، که در
- * آن گوش غیرآزمایشی با نویز اشغال می‌شود تا در نتیجه آزمون گوش مقابل دخالت نکند.
+ * همچنین امکان پخش هم‌زمان نویز باریک‌باند ماسک‌کننده (پیوسته، نه پالسی) در گوش مقابل را
+ * دارد — دقیقاً همان روش استاندارد ماسکینگ در اودیومتری بالینی برای بررسی «اثر سایه»
+ * (Cross-hearing)، که در آن گوش غیرآزمایشی با نویز اشغال می‌شود تا در نتیجه آزمون گوش مقابل
+ * دخالت نکند.
  */
 object HearingTestTonePlayer {
 
     private const val TAG = "HearingTestTonePlayer"
     private const val SAMPLE_RATE = 44100
 
+    // پارامترهای بیپ پالسی (مطابق بازه متداول ۲۰۰ تا ۵۰۰ میلی‌ثانیه در دستورالعمل‌های اودیومتری)
+    private const val PULSE_ON_MS = 400
+    private const val PULSE_OFF_MS = 250
+
     @Volatile
     private var isPlaying = false
     private var playbackThread: Thread? = null
 
     /**
-     * شروع پخش پیوسته. اگر پخش قبلی در جریان باشد، ابتدا متوقف می‌شود.
+     * شروع پخش پالسی (بیپ‌بیپ) تا زمان توقف صریح. اگر پخش قبلی در جریان باشد، ابتدا متوقف می‌شود.
      * @param testEar گوشی که تن خالص در آن پخش می‌شود
      * @param attenuationDb میزان کاهش نسبت به حداکثر خروجی دستگاه (۰ = بلندترین حالت)
-     * @param maskingEnabled اگر true باشد، هم‌زمان نویز باریک‌باند ماسک‌کننده در گوش مقابل پخش می‌شود
+     * @param maskingEnabled اگر true باشد، هم‌زمان نویز باریک‌باند ماسک‌کننده پیوسته در گوش مقابل پخش می‌شود
      * @param maskingAttenuationDb سطح نویز ماسک‌کننده (۰ = بلندترین حالت)
      */
     fun start(
@@ -55,33 +60,34 @@ object HearingTestTonePlayer {
         stop()
         isPlaying = true
         playbackThread = thread(name = "MaskerTestTonePlayerThread") {
-            playContinuous(context, testEar, frequencyHz, attenuationDb, maskingEnabled, maskingAttenuationDb)
+            playLoop(context, testEar, frequencyHz, attenuationDb, maskingEnabled, maskingAttenuationDb, pulsed = true)
         }
     }
 
-    /** توقف پخش پیوسته فعلی (اگر در جریان باشد) */
+    /** توقف پخش فعلی (اگر در جریان باشد) */
     fun stop() {
         isPlaying = false
         playbackThread?.join(300)
         playbackThread = null
     }
 
-    /** پخش یک‌بارِ کوتاه، فقط برای تن آزمایشیِ تنظیم ولوم (نه برای آزمون واقعی) */
+    /** پخش یک‌بارِ کوتاه و پیوسته (بدون پالس)، فقط برای تن آزمایشیِ تنظیم ولوم (نه برای آزمون واقعی) */
     fun playBrief(context: Context, ear: Ear, frequencyHz: Double, attenuationDb: Float, durationMs: Int, onComplete: () -> Unit) {
         thread(name = "MaskerBriefTonePlayerThread") {
             val stopFlag = booleanArrayOf(true)
-            playContinuous(context, ear, frequencyHz, attenuationDb, false, 20f, durationMs, stopFlag)
+            playLoop(context, ear, frequencyHz, attenuationDb, false, 20f, pulsed = false, fixedDurationMs = durationMs, briefModeFlag = stopFlag)
             onComplete()
         }
     }
 
-    private fun playContinuous(
+    private fun playLoop(
         context: Context,
         testEar: Ear,
         frequencyHz: Double,
         attenuationDb: Float,
         maskingEnabled: Boolean,
         maskingAttenuationDb: Float,
+        pulsed: Boolean,
         fixedDurationMs: Int? = null,
         briefModeFlag: BooleanArray? = null
     ) {
@@ -133,9 +139,14 @@ object HearingTestTonePlayer {
         val maskFilter = if (maskingEnabled) BiquadBandPass(SAMPLE_RATE, frequencyHz, 1.4) else null
         val random = java.util.Random()
 
-        val fadeFrames = (SAMPLE_RATE * 0.02).toInt().coerceAtLeast(1)
+        // فید نرم برای جلوگیری از کلیک صدا: هم در لبه‌های هر پالس بیپ، هم در شروع/پایان پخش کوتاه
+        val fadeFrames = (SAMPLE_RATE * 0.015).toInt().coerceAtLeast(1)
         var frameCounter = 0
         val totalFramesForBrief = fixedDurationMs?.let { SAMPLE_RATE * it / 1000 }
+
+        val pulseOnFrames = SAMPLE_RATE * PULSE_ON_MS / 1000
+        val pulseOffFrames = SAMPLE_RATE * PULSE_OFF_MS / 1000
+        val pulseCycleFrames = pulseOnFrames + pulseOffFrames
 
         val chunkFrames = 512
         val chunk = ShortArray(chunkFrames * 2)
@@ -147,17 +158,30 @@ object HearingTestTonePlayer {
             for (i in 0 until chunkFrames) {
                 if (!running()) break
 
-                var toneSample = sin(tonePhase) * toneAmplitude
+                // دروازه پالسی: در حالت pulsed، تن فقط در بخش «روشن» هر چرخه پخش می‌شود
+                var toneGate = 1.0
+                if (pulsed) {
+                    val posInCycle = frameCounter % pulseCycleFrames
+                    toneGate = when {
+                        posInCycle >= pulseOnFrames -> 0.0
+                        posInCycle < fadeFrames -> posInCycle.toDouble() / fadeFrames
+                        posInCycle > pulseOnFrames - fadeFrames -> (pulseOnFrames - posInCycle).toDouble() / fadeFrames
+                        else -> 1.0
+                    }
+                }
+
+                var toneSample = sin(tonePhase) * toneAmplitude * toneGate
                 tonePhase += phaseIncrement
                 if (tonePhase > 2.0 * PI) tonePhase -= 2.0 * PI
 
-                // فید ورود/خروج نرم برای پخش کوتاه تن آزمایشی (جلوگیری از کلیک صدا)
+                // فید ورود/خروج نرم برای کل پخش کوتاه تن آزمایشی (جلوگیری از کلیک صدا)
                 if (totalFramesForBrief != null) {
                     if (frameCounter < fadeFrames) toneSample *= frameCounter.toDouble() / fadeFrames
                     val remaining = totalFramesForBrief - frameCounter
                     if (remaining in 0 until fadeFrames) toneSample *= remaining.toDouble() / fadeFrames
                 }
 
+                // نویز ماسک‌کننده همیشه پیوسته پخش می‌شود (نه پالسی)، مطابق روش استاندارد بالینی
                 var maskSample = 0.0
                 if (maskFilter != null) {
                     val white = random.nextDouble() * 2.0 - 1.0

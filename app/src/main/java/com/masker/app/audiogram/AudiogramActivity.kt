@@ -7,12 +7,15 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Environment
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.masker.app.R
 import com.masker.app.databinding.ActivityAudiogramBinding
+import com.masker.app.report.PatientReport
+import com.masker.app.report.ReportSendManager
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -21,7 +24,7 @@ import java.util.Locale
 
 /**
  * فعالیت آزمون شنوایی (اودیوگرام). سه مرحله دارد: معرفی/تنظیم ولوم، انجام آزمون (پخش
- * پیوسته تن و دریافت پاسخ کاربر با دو دکمه «می‌شنوم»/«نمی‌شنوم» برای هر گوش/فرکانس)، و
+ * پالسی/بیپ‌بیپ تن و دریافت پاسخ کاربر با دو دکمه «می‌شنوم»/«نمی‌شنوم» برای هر گوش/فرکانس)، و
  * نمایش نتیجه به‌صورت نمودار قابل ذخیره و اشتراک‌گذاری.
  *
  * پس از پایان آزمون معمولی، از کاربر پرسیده می‌شود که آیا مایل است «اثر سایه»
@@ -29,8 +32,12 @@ import java.util.Locale
  * با پخش هم‌زمان نویز ماسک‌کننده در گوش مقابل — دقیقاً همان روش استاندارد ماسکینگ در
  * اودیومتری بالینی. نتایج ماسک‌شده با نمادهای استاندارد اودیولوژی (مثلث/مربع) رسم می‌شوند.
  *
- * همچنین می‌تواند در «حالت نمایش» باز شود (از صفحه سوابق) تا آخرین نتیجه ذخیره‌شده یک فرد
- * را مستقیماً نشان دهد، بدون نیاز به اجرای آزمون جدید.
+ * از صفحه سوابق («جست‌وجوی سابقه») می‌توان نام و سن یک فرد قبلی را انتخاب کرد تا این
+ * اطلاعات در فیلدهای این صفحه از پیش پر شوند و آماده اجرای یک آزمون جدید برای همان فرد باشند.
+ *
+ * هر بار که آزمون موقتاً متوقف شود، نمره ذهنی شدت وزوز هر گوش پرسیده و به‌همراه وضعیت
+ * اودیوگرام و تنظیمات فعلی ماسکر، برای بررسی‌های آزمایشگاهی به سازنده ایمیل می‌شود (یا در
+ * نبود اینترنت، برای ارسال خودکار بعدی ذخیره می‌شود).
  */
 class AudiogramActivity : AppCompatActivity() {
 
@@ -40,8 +47,6 @@ class AudiogramActivity : AppCompatActivity() {
 
         // سطح نویز ماسک‌کننده در گوش مقابل، هنگام بررسی اثر سایه (مقیاس نسبی ساده‌شده)
         private const val MASKING_ATTENUATION_DB = 15f
-
-        const val EXTRA_VIEW_PATIENT_NAME = "extra_view_patient_name"
     }
 
     private lateinit var binding: ActivityAudiogramBinding
@@ -79,14 +84,24 @@ class AudiogramActivity : AppCompatActivity() {
         binding.retakeTestButton.setOnClickListener { showIntroSection() }
         binding.saveAudiogramButton.setOnClickListener { saveAudiogramImage(share = false) }
         binding.shareAudiogramButton.setOnClickListener { saveAudiogramImage(share = true) }
+    }
 
-        val viewPatientName = intent.getStringExtra(EXTRA_VIEW_PATIENT_NAME)
-        if (viewPatientName != null) {
-            val stored = AudiogramStorage.loadLatestResultForPatient(this, viewPatientName)
+    override fun onResume() {
+        super.onResume()
+        val selectedName = AudiogramHistoryActivity.pendingSelectedName
+        if (selectedName != null) {
+            AudiogramHistoryActivity.pendingSelectedName = null
+            val stored = AudiogramStorage.loadLatestResultForPatient(this, selectedName)
             if (stored != null) {
+                showIntroSection()
                 binding.patientNameEditText.setText(stored.patientName)
                 binding.patientAgeEditText.setText(stored.patientAge.toString())
-                showStoredResult(stored)
+                binding.patientNameEditText.setSelection(binding.patientNameEditText.text?.length ?: 0)
+                Toast.makeText(
+                    this,
+                    getString(R.string.history_loaded_toast, stored.patientName),
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
@@ -220,6 +235,47 @@ class AudiogramActivity : AppCompatActivity() {
 
             binding.pauseResumeButton.text = getString(R.string.resume_test)
             binding.pausedStatusText.visibility = View.VISIBLE
+
+            showTinnitusScoreDialog()
+        }
+    }
+
+    /**
+     * هر بار که کاربر آزمون را موقتاً متوقف می‌کند، نمره ذهنی شدت وزوز هر گوش (۰ تا ۱۰)
+     * پرسیده و به‌همراه وضعیت فعلی اودیوگرام و تنظیمات ماسکر، برای بررسی‌های آزمایشگاهی و
+     * بهبود نرم‌افزار برای سازنده ارسال (یا در صورت نبود اینترنت، برای ارسال بعدی ذخیره) می‌شود.
+     */
+    private fun showTinnitusScoreDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_tinnitus_score, null)
+        val leftScoreEditText = dialogView.findViewById<EditText>(R.id.leftScoreEditText)
+        val rightScoreEditText = dialogView.findViewById<EditText>(R.id.rightScoreEditText)
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.tinnitus_score_dialog_title)
+            .setView(dialogView)
+            .setCancelable(true)
+            .setPositiveButton(R.string.submit) { _, _ ->
+                val left = leftScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
+                val right = rightScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
+                sendCheckpointReport(left, right)
+            }
+            .setNegativeButton(R.string.skip, null)
+            .show()
+    }
+
+    private fun sendCheckpointReport(leftScore: Int?, rightScore: Int?) {
+        val report = PatientReport.build(
+            context = this,
+            patientName = patientName.ifBlank { binding.patientNameEditText.text?.toString().orEmpty() },
+            patientAge = if (patientAge > 0) patientAge else (binding.patientAgeEditText.text?.toString()?.toIntOrNull() ?: 0),
+            audiogramResult = pendingUnmaskedResult,
+            leftTinnitusScore = leftScore,
+            rightTinnitusScore = rightScore
+        )
+        ReportSendManager.sendOrQueue(this, report) { _ ->
+            runOnUiThread {
+                Toast.makeText(this, R.string.report_sent_message, Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -238,15 +294,6 @@ class AudiogramActivity : AppCompatActivity() {
         binding.testSection.visibility = View.GONE
         binding.resultSection.visibility = View.GONE
         binding.introSection.visibility = View.VISIBLE
-    }
-
-    private fun showStoredResult(result: AudiogramResult) {
-        binding.introSection.visibility = View.GONE
-        binding.testSection.visibility = View.GONE
-        binding.resultSection.visibility = View.VISIBLE
-        binding.audiogramView.setResult(result)
-        updatePatientInfoText(result)
-        updateLegendText(result)
     }
 
     private fun formatFrequencyLabel(freqHz: Double): String {

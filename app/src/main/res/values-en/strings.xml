@@ -85,7 +85,7 @@
     <string name="audiogram_disclaimer">Note: this is a personal, uncalibrated screening test (dependent on your headphone model, volume setting, and ambient noise) and is not a substitute for clinical hearing assessment by an audiologist. Use the results only to compare and track your own trend over time.</string>
     <string name="play_calibration_tone">Play Test Tone to Set Volume</string>
     <string name="start_test">Start Test</string>
-    <string name="audiogram_test_instruction">Tap the button below as soon as you hear the sound. If you don\'t hear anything, do nothing.</string>
+    <string name="audiogram_test_instruction">The sound plays as a beep-beep pattern. Tap &#8220;I Hear It&#8221; if you hear it, or &#8220;I Don\'t Hear It&#8221; once you\'re sure there\'s no sound.</string>
     <string name="i_heard_it">I Heard It</string>
     <string name="audiogram_progress_format">%1$s — Frequency %2$d of %3$d (%4$s)</string>
     <string name="audiogram_result_title">Test Result</string>
@@ -107,11 +107,19 @@
 
     <string name="audiogram_legend_with_masked">Red circle = right ear (unmasked), blue X = left ear (unmasked), red triangle = right ear (masked), blue square = left ear (masked). A higher point means that frequency was heard at a quieter level (relatively better hearing).</string>
 
-    <string name="view_history">View Previous Records</string>
+    <string name="view_history">Search Previous Records</string>
     <string name="history_title">Saved Test Records</string>
     <string name="search_name_hint">Search by name</string>
     <string name="history_empty">No tests saved yet</string>
     <string name="patient_meta_format">Age: %1$d — Last test: %2$s — Tests: %3$d</string>
+    <string name="history_loaded_toast">Loaded %1$s\'s info; ready for a new test</string>
+
+    <string name="submit">Submit</string>
+    <string name="skip">Skip</string>
+    <string name="tinnitus_score_dialog_title">Tinnitus Severity</string>
+    <string name="tinnitus_score_dialog_message">Right now, what score from 0 (not bothersome at all) to 10 (most severe) would you give each ear\'s tinnitus?</string>
+    <string name="tinnitus_score_hint">0 to 10</string>
+    <string name="report_sent_message">The information was sent for lab review and software improvement, and will remain confidential with the developer</string>
 
     <string name="patient_name_hint">Full Name</string>
     <string name="patient_age_hint">Age</string>

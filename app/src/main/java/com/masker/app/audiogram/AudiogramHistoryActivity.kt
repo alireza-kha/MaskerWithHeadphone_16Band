@@ -1,6 +1,5 @@
 package com.masker.app.audiogram
 
-import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -9,7 +8,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.masker.app.databinding.ActivityAudiogramHistoryBinding
 
+/**
+ * لیست جست‌وجوپذیر افراد دارای آزمون ذخیره‌شده. با انتخاب یک نام، اطلاعات آن فرد
+ * (نام و سن) برای آماده‌سازی یک آزمون جدید به صفحه اودیوگرام برگردانده می‌شود.
+ */
 class AudiogramHistoryActivity : AppCompatActivity() {
+
+    companion object {
+        /** نام فردی که کاربر از لیست انتخاب کرده؛ توسط AudiogramActivity در onResume خوانده و پاک می‌شود */
+        var pendingSelectedName: String? = null
+    }
 
     private lateinit var binding: ActivityAudiogramHistoryBinding
     private lateinit var adapter: AudiogramHistoryAdapter
@@ -21,9 +29,8 @@ class AudiogramHistoryActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         adapter = AudiogramHistoryAdapter(mutableListOf()) { summary ->
-            val intent = Intent(this, AudiogramActivity::class.java)
-            intent.putExtra(AudiogramActivity.EXTRA_VIEW_PATIENT_NAME, summary.patientName)
-            startActivity(intent)
+            pendingSelectedName = summary.patientName
+            finish()
         }
         binding.historyRecyclerView.layoutManager = LinearLayoutManager(this)
         binding.historyRecyclerView.adapter = adapter

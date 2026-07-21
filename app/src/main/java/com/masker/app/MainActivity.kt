@@ -24,6 +24,7 @@ import com.masker.app.audiogram.AudiogramNoiseShaper
 import com.masker.app.audiogram.AudiogramStorage
 import com.masker.app.databinding.ActivityMainBinding
 import com.masker.app.databinding.ItemBandSliderBinding
+import com.masker.app.report.ReportSendManager
 import com.masker.app.schedule.ScheduleActivity
 import com.masker.app.service.PlaybackService
 import java.io.File
@@ -80,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         setupTabs()
         updateLastAudiogramSummary()
         requestNotificationPermissionIfNeeded()
+        ReportSendManager.flushPending(this)
     }
 
     override fun onResume() {

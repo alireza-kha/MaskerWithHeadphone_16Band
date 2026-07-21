@@ -41,6 +41,13 @@
                 android:textColor="#B71C1C"
                 android:layout_marginBottom="16dp" />
 
+            <Button
+                android:id="@+id/viewHistoryButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:text="@string/view_history" />
+
             <EditText
                 android:id="@+id/patientNameEditText"
                 android:layout_width="match_parent"
@@ -71,13 +78,6 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/start_test" />
-
-            <Button
-                android:id="@+id/viewHistoryButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/view_history" />
 
         </LinearLayout>
 

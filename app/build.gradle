@@ -1,3 +1,16 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+// آدرس Google Apps Script Web App که گزارش‌ها به آن ارسال می‌شود، از فایل local.properties
+// خوانده می‌شود (که در .gitignore است و هرگز به گیت‌هاب نمی‌رود). اگر این فایل یا مقدارش
+// وجود نداشته باشد، برنامه همچنان کامپایل می‌شود اما ارسال گزارش غیرفعال باقی می‌ماند تا
+// زمانی که توسعه‌دهنده این مقدار را به‌صورت محلی اضافه کند.
+def localProps = new Properties()
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localProps.load(new FileInputStream(localPropsFile))
+}
+
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
@@ -13,6 +26,8 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+
+        buildConfigField "String", "SHEETS_WEBHOOK_URL", "\"${localProps.getProperty('SHEETS_WEBHOOK_URL', '')}\""
     }
 
     buildTypes {
@@ -33,6 +48,7 @@ android {
 
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
 }
 
