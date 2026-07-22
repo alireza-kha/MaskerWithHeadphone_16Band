@@ -26,6 +26,10 @@ object SettingsStorage {
     private const val KEY_MODULATION_ENABLED = "modulation_enabled"
     private const val KEY_MODULATION_DEPTH = "modulation_depth"
 
+    private const val KEY_PLAYLIST_NOTCH_ENABLED = "playlist_notch_enabled"
+    private const val KEY_PLAYLIST_NOTCH_FREQUENCY = "playlist_notch_frequency"
+    private const val KEY_PLAYLIST_NOTCH_WIDTH = "playlist_notch_width"
+
     fun saveBandGain(context: Context, index: Int, value: Float) {
         prefs(context).edit().putFloat(KEY_BAND_PREFIX + index, value).apply()
     }
@@ -129,6 +133,28 @@ object SettingsStorage {
 
     fun loadModulationDepth(context: Context, default: Float): Float {
         return prefs(context).getFloat(KEY_MODULATION_DEPTH, default)
+    }
+
+    // ---- تنظیمات حذف فرکانس (Notch) پلی‌لیست ----
+
+    fun savePlaylistNotchSettings(context: Context, enabled: Boolean, frequencyHz: Double, widthOctaves: Float) {
+        prefs(context).edit()
+            .putBoolean(KEY_PLAYLIST_NOTCH_ENABLED, enabled)
+            .putFloat(KEY_PLAYLIST_NOTCH_FREQUENCY, frequencyHz.toFloat())
+            .putFloat(KEY_PLAYLIST_NOTCH_WIDTH, widthOctaves)
+            .apply()
+    }
+
+    fun loadPlaylistNotchEnabled(context: Context): Boolean {
+        return prefs(context).getBoolean(KEY_PLAYLIST_NOTCH_ENABLED, false)
+    }
+
+    fun loadPlaylistNotchFrequency(context: Context, default: Double): Double {
+        return prefs(context).getFloat(KEY_PLAYLIST_NOTCH_FREQUENCY, default.toFloat()).toDouble()
+    }
+
+    fun loadPlaylistNotchWidth(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_PLAYLIST_NOTCH_WIDTH, default)
     }
 
     private fun prefs(context: Context) =

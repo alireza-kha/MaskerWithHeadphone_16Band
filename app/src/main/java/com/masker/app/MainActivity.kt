@@ -26,6 +26,7 @@ import com.masker.app.audio.TonalEngine
 import com.masker.app.audiogram.AudiogramActivity
 import com.masker.app.audiogram.AudiogramGalleryActivity
 import com.masker.app.audiogram.AudiogramNoiseShaper
+import com.masker.app.audiogram.AudiogramResult
 import com.masker.app.audiogram.AudiogramStorage
 import com.masker.app.databinding.ActivityMainBinding
 import com.masker.app.databinding.ItemBandSliderBinding
@@ -176,6 +177,11 @@ class MainActivity : AppCompatActivity() {
         modulationDepth = SettingsStorage.loadModulationDepth(this, 0.6f)
         PlaybackService.noiseEngine.modulationEnabled = modulationEnabled
         PlaybackService.noiseEngine.modulationDepth = modulationDepth
+
+        playlistNotchEnabled = SettingsStorage.loadPlaylistNotchEnabled(this)
+        playlistNotchFrequencyHz = SettingsStorage.loadPlaylistNotchFrequency(this, 4000.0)
+        playlistNotchWidthOctaves = SettingsStorage.loadPlaylistNotchWidth(this, 0.5f)
+        PlaylistPlaybackService.engine.setNotch(playlistNotchEnabled, playlistNotchFrequencyHz, playlistNotchWidthOctaves)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -338,25 +344,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.notchFromAudiogramButton.setOnClickListener {
             val result = AudiogramStorage.loadLastResult(this)
-            if (result == null) {
-                MessageDialog.show(this, R.string.notch_no_audiogram)
-                return@setOnClickListener
-            }
-
-            // فرکانسی که بدترین آستانه شنوایی (نیاز به بلندترین صدا) را در هر یک از دو گوش دارد
-            // به‌عنوان برآورد اولیه فرکانس وزوز استفاده می‌شود
-            var suggestedFreq: Double? = null
-            var worstThreshold = Float.POSITIVE_INFINITY
-            for (i in result.frequenciesHz.indices) {
-                val r = result.rightThresholdsDb.getOrNull(i)?.takeIf { !it.isNaN() }
-                val l = result.leftThresholdsDb.getOrNull(i)?.takeIf { !it.isNaN() }
-                val worseOfTwo = listOfNotNull(r, l).minOrNull()
-                if (worseOfTwo != null && worseOfTwo < worstThreshold) {
-                    worstThreshold = worseOfTwo
-                    suggestedFreq = result.frequenciesHz[i]
-                }
-            }
-
+            val suggestedFreq = result?.let { findSuggestedNotchFrequency(it) }
             if (suggestedFreq == null) {
                 MessageDialog.show(this, R.string.notch_no_audiogram)
                 return@setOnClickListener
@@ -365,6 +353,26 @@ class MainActivity : AppCompatActivity() {
             binding.notchFrequencyEditText.setText(suggestedFreq.toInt().toString())
             MessageDialog.show(this, getString(R.string.notch_frequency_from_audiogram_toast, suggestedFreq.toInt().toString()))
         }
+    }
+
+    /**
+     * فرکانسی که بدترین آستانه شنوایی (نیاز به بلندترین صدا) را در هر یک از دو گوش دارد،
+     * به‌عنوان برآورد اولیه فرکانس وزوز استفاده می‌شود؛ هم برای Notch تب ماسکر نویزی و هم
+     * برای Notch تب پلی‌لیست به‌کار می‌رود.
+     */
+    private fun findSuggestedNotchFrequency(result: AudiogramResult): Double? {
+        var suggestedFreq: Double? = null
+        var worstThreshold = Float.POSITIVE_INFINITY
+        for (i in result.frequenciesHz.indices) {
+            val r = result.rightThresholdsDb.getOrNull(i)?.takeIf { !it.isNaN() }
+            val l = result.leftThresholdsDb.getOrNull(i)?.takeIf { !it.isNaN() }
+            val worseOfTwo = listOfNotNull(r, l).minOrNull()
+            if (worseOfTwo != null && worseOfTwo < worstThreshold) {
+                worstThreshold = worseOfTwo
+                suggestedFreq = result.frequenciesHz[i]
+            }
+        }
+        return suggestedFreq
     }
 
     private fun updateNotchStatusText() {
@@ -662,12 +670,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        ReportSendManager.sendOrQueue(this, report) { success ->
+        ReportSendManager.sendOrQueue(this, report) { outcome ->
             runOnUiThread {
-                val message = if (success) {
-                    getString(R.string.report_sent_message)
-                } else {
-                    getString(R.string.report_queued_message)
+                val message = when (outcome) {
+                    ReportSendManager.SendOutcome.SENT -> getString(R.string.report_sent_message)
+                    ReportSendManager.SendOutcome.NO_NETWORK -> getString(R.string.report_queued_message)
+                    ReportSendManager.SendOutcome.SEND_FAILED -> getString(R.string.report_send_failed_message)
                 }
                 MessageDialog.show(this, message)
             }
@@ -848,6 +856,7 @@ class MainActivity : AppCompatActivity() {
             if (playlistNotchEnabled) {
                 playlistNotchEnabled = false
                 PlaylistPlaybackService.engine.setNotch(false, playlistNotchFrequencyHz, playlistNotchWidthOctaves)
+                SettingsStorage.savePlaylistNotchSettings(this, false, playlistNotchFrequencyHz, playlistNotchWidthOctaves)
                 binding.playlistToggleNotchButton.text = getString(R.string.enable_notch)
                 updatePlaylistNotchStatusText()
             } else {
@@ -864,9 +873,22 @@ class MainActivity : AppCompatActivity() {
                 playlistNotchFrequencyHz = freq
                 playlistNotchWidthOctaves = width
                 PlaylistPlaybackService.engine.setNotch(true, freq, width)
+                SettingsStorage.savePlaylistNotchSettings(this, true, freq, width)
                 binding.playlistToggleNotchButton.text = getString(R.string.disable_notch)
                 updatePlaylistNotchStatusText()
             }
+        }
+
+        binding.playlistNotchFromAudiogramButton.setOnClickListener {
+            val result = AudiogramStorage.loadLastResult(this)
+            val suggestedFreq = result?.let { findSuggestedNotchFrequency(it) }
+            if (suggestedFreq == null) {
+                MessageDialog.show(this, R.string.notch_no_audiogram)
+                return@setOnClickListener
+            }
+
+            binding.playlistNotchFrequencyEditText.setText(suggestedFreq.toInt().toString())
+            MessageDialog.show(this, getString(R.string.notch_frequency_from_audiogram_toast, suggestedFreq.toInt().toString()))
         }
     }
 

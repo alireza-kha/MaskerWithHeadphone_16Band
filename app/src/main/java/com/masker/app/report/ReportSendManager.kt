@@ -10,18 +10,22 @@ import kotlin.concurrent.thread
  */
 object ReportSendManager {
 
-    /** تلاش فوری برای ارسال؛ نتیجه (موفق/ناموفق) از طریق onResult روی همان ترد پس‌زمینه اعلام می‌شود */
-    fun sendOrQueue(context: Context, report: PatientReport, onResult: (Boolean) -> Unit) {
+    /** نتیجه تلاش برای ارسال گزارش، برای نمایش پیام دقیق به کاربر (به‌جای همیشه یک پیام ثابت) */
+    enum class SendOutcome { SENT, NO_NETWORK, SEND_FAILED }
+
+    /** تلاش فوری برای ارسال؛ نتیجه دقیق از طریق onResult روی همان ترد پس‌زمینه اعلام می‌شود */
+    fun sendOrQueue(context: Context, report: PatientReport, onResult: (SendOutcome) -> Unit) {
         thread(name = "MaskerReportSendThread") {
-            val sent = if (SheetsReportSender.isNetworkAvailable(context)) {
-                SheetsReportSender.sendReportSync(report)
-            } else {
-                false
-            }
-            if (!sent) {
+            val outcome = if (!SheetsReportSender.isNetworkAvailable(context)) {
                 ReportQueueStorage.enqueue(context, report)
+                SendOutcome.NO_NETWORK
+            } else if (SheetsReportSender.sendReportSync(report)) {
+                SendOutcome.SENT
+            } else {
+                ReportQueueStorage.enqueue(context, report)
+                SendOutcome.SEND_FAILED
             }
-            onResult(sent)
+            onResult(outcome)
         }
     }
 

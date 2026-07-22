@@ -29,10 +29,17 @@ object SheetsReportSender {
     }
 
     fun isNetworkAvailable(context: Context): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
-        val network = cm.activeNetwork ?: return false
-        val capabilities = cm.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+            val network = cm.activeNetwork ?: return false
+            val capabilities = cm.getNetworkCapabilities(network) ?: return false
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } catch (e: Exception) {
+            // اگر خود بررسی وضعیت شبکه با خطا مواجه شد، به‌جای گزارش نادرست «اینترنت نیست»،
+            // اجازه می‌دهیم ارسال واقعی امتحان شود تا دلیل واقعی ناموفق بودن (در صورت وجود) مشخص شود
+            Log.w(TAG, "Failed to check network availability; assuming available", e)
+            true
+        }
     }
 
     /** ارسال همزمان (Blocking)؛ باید روی یک ترد پس‌زمینه فراخوانی شود */
@@ -44,7 +51,9 @@ object SheetsReportSender {
         return try {
             val body = report.toJson().toString().toByteArray(Charsets.UTF_8)
             val responseCode = postJson(BuildConfig.SHEETS_WEBHOOK_URL, body)
-            responseCode in 200..299
+            val success = responseCode in 200..299
+            if (!success) Log.w(TAG, "Sheets webhook returned unexpected response code: $responseCode")
+            success
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send report to Sheets webhook", e)
             false

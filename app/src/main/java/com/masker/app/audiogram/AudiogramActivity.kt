@@ -255,12 +255,12 @@ class AudiogramActivity : AppCompatActivity() {
             return
         }
 
-        ReportSendManager.sendOrQueue(this, report) { success ->
+        ReportSendManager.sendOrQueue(this, report) { outcome ->
             runOnUiThread {
-                val message = if (success) {
-                    getString(R.string.report_sent_message)
-                } else {
-                    getString(R.string.report_queued_message)
+                val message = when (outcome) {
+                    ReportSendManager.SendOutcome.SENT -> getString(R.string.report_sent_message)
+                    ReportSendManager.SendOutcome.NO_NETWORK -> getString(R.string.report_queued_message)
+                    ReportSendManager.SendOutcome.SEND_FAILED -> getString(R.string.report_send_failed_message)
                 }
                 MessageDialog.show(this, message)
             }

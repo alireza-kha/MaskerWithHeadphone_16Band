@@ -659,13 +659,30 @@
                 android:text="@string/playlist_notch_description"
                 android:textSize="12sp" />
 
-            <EditText
-                android:id="@+id/playlistNotchFrequencyEditText"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/notch_frequency_hint"
-                android:inputType="number"
-                android:importantForAutofill="no" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/playlistNotchFrequencyEditText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/notch_frequency_hint"
+                    android:inputType="number"
+                    android:importantForAutofill="no" />
+
+                <Button
+                    android:id="@+id/playlistNotchFromAudiogramButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/notch_from_audiogram"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
