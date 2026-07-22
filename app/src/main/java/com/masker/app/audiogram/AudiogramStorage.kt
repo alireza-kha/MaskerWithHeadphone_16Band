@@ -1,16 +1,24 @@
 package com.masker.app.audiogram
 
 import android.content.Context
+import com.masker.app.storage.MaskerStorage
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /**
  * ذخیره‌سازی تاریخچه کامل آزمون‌های شنوایی (برای همه افراد)، به‌همراه امکان جست‌وجو
  * بر اساس نام و نام خانوادگی برای دسترسی به آخرین نتیجه هر فرد.
+ *
+ * از نگارش ۲ به بعد، این تاریخچه به‌صورت یک فایل JSON در پوشه عمومی
+ * Documents/Masker/History نگه‌داری می‌شود (نه در حافظه اختصاصی برنامه) تا با حذف یا
+ * نصب مجدد برنامه از بین نرود. تاریخچه قدیمی‌تر که در SharedPreferences ذخیره شده بود،
+ * در اولین اجرا به‌طور خودکار به این فایل منتقل می‌شود.
  */
 object AudiogramStorage {
     private const val PREFS_NAME = "masker_audiogram"
     private const val KEY_RESULTS_LIST = "results_list"
+    private const val FILE_NAME = "audiogram_history.json"
 
     /** افزودن یک نتیجه جدید به تاریخچه (تاریخچه قبلی حفظ می‌شود) */
     fun saveResult(context: Context, result: AudiogramResult) {
@@ -31,9 +39,22 @@ object AudiogramStorage {
         saveAll(context, all)
     }
 
+    /** حذف یک نتیجه مشخص از تاریخچه (مثلاً از صفحه مشاهده سابقه) */
+    fun deleteResult(context: Context, timestampMillis: Long) {
+        val all = loadAllResults(context).toMutableList()
+        all.removeAll { it.timestampMillis == timestampMillis }
+        saveAll(context, all)
+    }
+
     fun loadAllResults(context: Context): List<AudiogramResult> {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val json = prefs.getString(KEY_RESULTS_LIST, null) ?: return emptyList()
+        migrateFromPrefsIfNeeded(context)
+        val file = historyFile(context)
+        val json = try {
+            if (file.exists()) file.readText() else null
+        } catch (_: Exception) {
+            null
+        } ?: return emptyList()
+
         return try {
             val arr = JSONArray(json)
             val list = mutableListOf<AudiogramResult>()
@@ -49,8 +70,28 @@ object AudiogramStorage {
     private fun saveAll(context: Context, results: List<AudiogramResult>) {
         val arr = JSONArray()
         for (r in results) arr.put(r.toJson())
+        try {
+            historyFile(context).writeText(arr.toString())
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun historyFile(context: Context): File {
+        return File(MaskerStorage.historyDir(context), FILE_NAME)
+    }
+
+    /** انتقال یک‌باره تاریخچه قدیمی از SharedPreferences به فایل جدید در Documents/Masker */
+    private fun migrateFromPrefsIfNeeded(context: Context) {
+        val file = historyFile(context)
+        if (file.exists()) return
+
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_RESULTS_LIST, arr.toString()).apply()
+        val oldJson = prefs.getString(KEY_RESULTS_LIST, null) ?: return
+        try {
+            file.parentFile?.mkdirs()
+            file.writeText(oldJson)
+        } catch (_: Exception) {
+        }
     }
 
     /** جدیدترین نتیجه ثبت‌شده در کل برنامه (صرف‌نظر از نام)، برای دکمه‌های میان‌بر مثل Notch/بهینه‌سازی */

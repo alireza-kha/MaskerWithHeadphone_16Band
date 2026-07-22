@@ -3,34 +3,52 @@ package com.masker.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.provider.OpenableColumns
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.tabs.TabLayout
 import com.masker.app.audio.NoiseEngine
 import com.masker.app.audio.TonalEngine
 import com.masker.app.audiogram.AudiogramActivity
+import com.masker.app.audiogram.AudiogramGalleryActivity
 import com.masker.app.audiogram.AudiogramNoiseShaper
 import com.masker.app.audiogram.AudiogramStorage
 import com.masker.app.databinding.ActivityMainBinding
 import com.masker.app.databinding.ItemBandSliderBinding
+import com.masker.app.databinding.ItemEqBandSliderBinding
+import com.masker.app.playlist.PlaylistAdapter
+import com.masker.app.playlist.PlaylistPlaybackService
+import com.masker.app.playlist.PlaylistPlayerEngine
+import com.masker.app.playlist.PlaylistStorage
+import com.masker.app.playlist.PlaylistTrack
+import com.masker.app.report.PatientReport
+import com.masker.app.report.ReportQueueStorage
 import com.masker.app.report.ReportSendManager
+import com.masker.app.report.SheetsReportSender
+import com.masker.app.report.TinnitusScoreDialog
 import com.masker.app.schedule.ScheduleActivity
 import com.masker.app.service.PlaybackService
+import com.masker.app.storage.MaskerStorage
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
@@ -64,6 +82,27 @@ class MainActivity : AppCompatActivity() {
     private var tonalRightVolume = 1.0f
     private var isTonalPlaying = false
 
+    // ------- تب «پلی‌لیست» -------
+    private lateinit var playlistAdapter: PlaylistAdapter
+    private val eqRowBindings = mutableListOf<ItemEqBandSliderBinding>()
+    private var playlistNotchEnabled = false
+    private var playlistNotchFrequencyHz = 4000.0
+    private var playlistNotchWidthOctaves = 0.5f
+    private var userIsDraggingPlaylistSeekBar = false
+
+    private val playlistUiHandler = Handler(Looper.getMainLooper())
+    private val playlistUiUpdater = object : Runnable {
+        override fun run() {
+            updatePlaylistPlaybackUi()
+            playlistUiHandler.postDelayed(this, 500)
+        }
+    }
+
+    private val pickAudioFilesLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+            if (uris.isNotEmpty()) importPlaylistFiles(uris)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -79,14 +118,23 @@ class MainActivity : AppCompatActivity() {
         setupModulationControls()
         setupButtons()
         setupTabs()
+        setupPlaylistTab()
         updateLastAudiogramSummary()
         requestNotificationPermissionIfNeeded()
+        requestStoragePermissionIfNeeded()
         ReportSendManager.flushPending(this)
     }
 
     override fun onResume() {
         super.onResume()
         updateLastAudiogramSummary()
+        refreshPlaylistUI()
+        playlistUiHandler.post(playlistUiUpdater)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        playlistUiHandler.removeCallbacks(playlistUiUpdater)
     }
 
     private fun setupTabs() {
@@ -95,6 +143,7 @@ class MainActivity : AppCompatActivity() {
                 binding.noiseTabContent.visibility = if (tab.position == 0) android.view.View.VISIBLE else android.view.View.GONE
                 binding.tonalTabContent.visibility = if (tab.position == 1) android.view.View.VISIBLE else android.view.View.GONE
                 binding.audiogramTabContent.visibility = if (tab.position == 2) android.view.View.VISIBLE else android.view.View.GONE
+                binding.playlistTabContent.visibility = if (tab.position == 3) android.view.View.VISIBLE else android.view.View.GONE
             }
             override fun onTabUnselected(tab: TabLayout.Tab) {}
             override fun onTabReselected(tab: TabLayout.Tab) {}
@@ -139,6 +188,25 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * درخواست مجوز دسترسی کامل به حافظه (در اندروید ۱۱ به بالا) تا سوابق، عکس‌ها، صداهای
+     * ذخیره‌شده و پلی‌لیست موسیقی در پوشه عمومی Documents/Masker نگه‌داری شوند و با حذف یا
+     * نصب مجدد برنامه از بین نروند. بدون این مجوز، برنامه همچنان کار می‌کند اما این اطلاعات
+     * فقط در حافظه اختصاصی برنامه (که با حذف نصب پاک می‌شود) ذخیره خواهند شد.
+     */
+    private fun requestStoragePermissionIfNeeded() {
+        if (MaskerStorage.hasPermission(this)) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.storage_permission_title)
+            .setMessage(R.string.storage_permission_message)
+            .setCancelable(true)
+            .setPositiveButton(R.string.storage_permission_grant) { _, _ ->
+                MaskerStorage.requestPermission(this)
+            }
+            .setNegativeButton(R.string.skip, null)
+            .show()
     }
 
     // ==================== تب «ماسکر نویزی» ====================
@@ -501,6 +569,9 @@ class MainActivity : AppCompatActivity() {
         binding.openAudiogramButton.setOnClickListener {
             startActivity(Intent(this, AudiogramActivity::class.java))
         }
+        binding.viewAudiogramGalleryButton.setOnClickListener {
+            startActivity(Intent(this, AudiogramGalleryActivity::class.java))
+        }
     }
 
     private fun updateLastAudiogramSummary() {
@@ -567,6 +638,43 @@ class MainActivity : AppCompatActivity() {
             isPlaying = false
             binding.playStopButton.text = getString(R.string.play)
         }
+
+        TinnitusScoreDialog.show(this) { left, right -> sendMaskerCheckpointReport(left, right) }
+    }
+
+    /**
+     * هر بار که کاربر پخش ماسکر (نویزی یا تونال) را متوقف می‌کند، نمره ذهنی شدت وزوز هر
+     * گوش پرسیده و به‌همراه آخرین وضعیت اودیوگرام و تنظیمات فعلی ماسکر، برای بررسی‌های
+     * آزمایشگاهی برای سازنده ارسال (یا در نبود اینترنت، برای ارسال بعدی ذخیره) می‌شود؛
+     * دقیقاً مثل توقف موقت آزمون اودیوگرام.
+     */
+    private fun sendMaskerCheckpointReport(leftScore: Int?, rightScore: Int?) {
+        val lastAudiogram = AudiogramStorage.loadLastResult(this)
+        val report = PatientReport.build(
+            context = this,
+            patientName = lastAudiogram?.patientName.orEmpty(),
+            patientAge = lastAudiogram?.patientAge ?: 0,
+            audiogramResult = lastAudiogram,
+            leftTinnitusScore = leftScore,
+            rightTinnitusScore = rightScore
+        )
+
+        if (!SheetsReportSender.isConfigured()) {
+            ReportQueueStorage.enqueue(this, report)
+            Toast.makeText(this, R.string.report_not_configured_message, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        ReportSendManager.sendOrQueue(this, report) { success ->
+            runOnUiThread {
+                val message = if (success) {
+                    getString(R.string.report_sent_message)
+                } else {
+                    getString(R.string.report_queued_message)
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun showSaveDurationDialog(mode: String) {
@@ -590,8 +698,7 @@ class MainActivity : AppCompatActivity() {
         progressDialog.show()
 
         thread {
-            val outDir = File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), "MaskerSounds")
-            if (!outDir.exists()) outDir.mkdirs()
+            val outDir = MaskerStorage.soundsDir(this@MainActivity)
 
             val prefix = if (mode == PlaybackService.MODE_TONAL) "masker_tonal_" else "masker_"
             val fileName = prefix + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".wav"
@@ -626,5 +733,274 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    // ==================== تب «پلی‌لیست» ====================
+
+    private fun setupPlaylistTab() {
+        playlistAdapter = PlaylistAdapter(
+            mutableListOf(),
+            onClick = { position -> playPlaylistTrack(position) },
+            onRemove = { position -> removePlaylistTrack(position) }
+        )
+        binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
+        binding.playlistRecyclerView.adapter = playlistAdapter
+
+        binding.addPlaylistFileButton.setOnClickListener {
+            pickAudioFilesLauncher.launch(arrayOf("audio/*"))
+        }
+
+        binding.playlistPrevButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_PREV) }
+        binding.playlistNextButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_NEXT) }
+        binding.playlistStopButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP) }
+        binding.playlistPlayPauseButton.setOnClickListener {
+            if (!PlaylistPlaybackService.engine.isPlaying) {
+                if (PlaylistPlaybackService.tracks.isNotEmpty()) {
+                    val startIndex = PlaylistPlaybackService.currentIndex.takeIf { it >= 0 } ?: 0
+                    playPlaylistTrack(startIndex)
+                }
+            } else {
+                sendPlaylistAction(PlaylistPlaybackService.ACTION_PAUSE_RESUME)
+            }
+        }
+
+        binding.playlistSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                userIsDraggingPlaylistSeekBar = true
+            }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                userIsDraggingPlaylistSeekBar = false
+                val duration = PlaylistPlaybackService.engine.durationMs
+                if (duration > 0) {
+                    val targetMs = duration * (seekBar?.progress ?: 0) / 1000
+                    PlaylistPlaybackService.engine.seekTo(this@MainActivity, targetMs)
+                }
+            }
+        })
+
+        setupPlaylistSpeedControl()
+        setupPlaylistEqualizer()
+        setupPlaylistNotchControls()
+        refreshPlaylistUI()
+    }
+
+    private fun setupPlaylistSpeedControl() {
+        val engine = PlaylistPlaybackService.engine
+        binding.playlistSpeedSeekBar.progress = (engine.speed * 100).toInt() - 50
+        updatePlaylistSpeedLabel(engine.speed)
+        binding.playlistSpeedSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                val newSpeed = (progress + 50) / 100f
+                PlaylistPlaybackService.engine.speed = newSpeed
+                updatePlaylistSpeedLabel(newSpeed)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+    }
+
+    private fun updatePlaylistSpeedLabel(speed: Float) {
+        binding.playlistSpeedValueText.text = getString(R.string.playlist_speed_format, speed)
+    }
+
+    private fun setupPlaylistEqualizer() {
+        val inflater = LayoutInflater.from(this)
+        val engine = PlaylistPlaybackService.engine
+        for (band in 0 until PlaylistPlayerEngine.EQ_BAND_COUNT) {
+            val rowBinding = ItemEqBandSliderBinding.inflate(inflater, binding.playlistEqContainer, false)
+            rowBinding.eqBandLabel.text = formatFrequencyLabel(PlaylistPlayerEngine.EQ_BAND_FREQUENCIES[band])
+
+            val gainDb = engine.eqBandGainsDb[band]
+            rowBinding.eqBandSeekBar.progress = (gainDb + 15).toInt()
+            rowBinding.eqBandValueText.text = getString(R.string.playlist_eq_gain_format, gainDb.toInt())
+
+            rowBinding.eqBandSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    val newGain = (progress - 15).toFloat()
+                    PlaylistPlaybackService.engine.setEqBandGain(band, newGain)
+                    rowBinding.eqBandValueText.text = getString(R.string.playlist_eq_gain_format, newGain.toInt())
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+
+            binding.playlistEqContainer.addView(rowBinding.root)
+            eqRowBindings.add(rowBinding)
+        }
+    }
+
+    private fun setupPlaylistNotchControls() {
+        val adapter = ArrayAdapter.createFromResource(
+            this, R.array.notch_width_options, android.R.layout.simple_spinner_item
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.playlistNotchWidthSpinner.adapter = adapter
+
+        val savedWidthIndex = notchWidthValues.indexOfFirst { it == playlistNotchWidthOctaves }.let { if (it >= 0) it else 0 }
+        binding.playlistNotchWidthSpinner.setSelection(savedWidthIndex)
+        binding.playlistNotchFrequencyEditText.setText(playlistNotchFrequencyHz.toInt().toString())
+        binding.playlistToggleNotchButton.text = getString(if (playlistNotchEnabled) R.string.disable_notch else R.string.enable_notch)
+        updatePlaylistNotchStatusText()
+
+        binding.playlistToggleNotchButton.setOnClickListener {
+            if (playlistNotchEnabled) {
+                playlistNotchEnabled = false
+                PlaylistPlaybackService.engine.setNotch(false, playlistNotchFrequencyHz, playlistNotchWidthOctaves)
+                binding.playlistToggleNotchButton.text = getString(R.string.enable_notch)
+                updatePlaylistNotchStatusText()
+            } else {
+                val freqText = binding.playlistNotchFrequencyEditText.text?.toString()?.trim().orEmpty()
+                val freq = freqText.toDoubleOrNull()
+                if (freq == null || freq < 60.0 || freq > 16000.0) {
+                    Toast.makeText(this, R.string.notch_invalid_frequency, Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                val widthIndex = binding.playlistNotchWidthSpinner.selectedItemPosition
+                val width = notchWidthValues.getOrElse(widthIndex) { 0.5f }
+
+                playlistNotchEnabled = true
+                playlistNotchFrequencyHz = freq
+                playlistNotchWidthOctaves = width
+                PlaylistPlaybackService.engine.setNotch(true, freq, width)
+                binding.playlistToggleNotchButton.text = getString(R.string.disable_notch)
+                updatePlaylistNotchStatusText()
+            }
+        }
+    }
+
+    private fun updatePlaylistNotchStatusText() {
+        binding.playlistNotchStatusText.text = if (playlistNotchEnabled) {
+            val widthLabels = resources.getStringArray(R.array.notch_width_options)
+            val widthIndex = notchWidthValues.indexOfFirst { it == playlistNotchWidthOctaves }.coerceAtLeast(0)
+            val widthLabel = widthLabels.getOrElse(widthIndex) { widthLabels[0] }
+            getString(R.string.notch_enabled_status_format, playlistNotchFrequencyHz.toInt().toString(), widthLabel)
+        } else {
+            getString(R.string.notch_disabled_status)
+        }
+    }
+
+    private fun playPlaylistTrack(position: Int) {
+        if (position < 0 || position >= PlaylistPlaybackService.tracks.size) return
+        val intent = Intent(this, PlaylistPlaybackService::class.java).apply {
+            action = PlaylistPlaybackService.ACTION_PLAY_INDEX
+            putExtra(PlaylistPlaybackService.EXTRA_INDEX, position)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    /**
+     * برای دکمه‌های کنترلی (توقف/قبلی/بعدی/مکث-ادامه) همیشه startService ساده استفاده می‌شود
+     * (نه startForegroundService)، چون این اکشن‌ها همیشه startForeground را فراخوانی نمی‌کنند
+     * (مثلاً وقتی چیزی در حال پخش نیست) و در آن صورت startForegroundService باعث کرش می‌شد.
+     */
+    private fun sendPlaylistAction(action: String) {
+        val intent = Intent(this, PlaylistPlaybackService::class.java).apply { this.action = action }
+        startService(intent)
+    }
+
+    private fun removePlaylistTrack(position: Int) {
+        val track = PlaylistPlaybackService.tracks.getOrNull(position) ?: return
+        val isCurrentlyPlaying = position == PlaylistPlaybackService.currentIndex
+        if (isCurrentlyPlaying) {
+            sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP)
+        }
+        PlaylistStorage.removeTrack(this, track.id)
+        refreshPlaylistUI()
+    }
+
+    private fun importPlaylistFiles(uris: List<Uri>) {
+        thread {
+            var addedCount = 0
+            for (uri in uris) {
+                try {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: Exception) {
+                }
+                val displayName = queryDisplayName(uri) ?: "track_${System.currentTimeMillis()}"
+                val destFileName = "${System.currentTimeMillis()}_${sanitizeFileName(displayName)}"
+                val destFile = File(MaskerStorage.playlistDir(this@MainActivity), destFileName)
+                try {
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        destFile.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    val track = PlaylistTrack(
+                        id = UUID.randomUUID().toString(),
+                        fileName = destFile.name,
+                        title = displayName.substringBeforeLast('.'),
+                        addedAtMillis = System.currentTimeMillis()
+                    )
+                    PlaylistStorage.addTrack(this@MainActivity, track)
+                    addedCount++
+                } catch (_: Exception) {
+                    try {
+                        destFile.delete()
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            runOnUiThread {
+                refreshPlaylistUI()
+                if (addedCount == 0) {
+                    Toast.makeText(this, R.string.playlist_import_failed, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        return try {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0 && cursor.moveToFirst()) cursor.getString(idx) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun sanitizeFileName(name: String): String {
+        return name.replace(Regex("[^A-Za-z0-9._\\-\\u0600-\\u06FF ]"), "_")
+    }
+
+    private fun refreshPlaylistUI() {
+        PlaylistPlaybackService.tracks = PlaylistStorage.loadTracks(this).toMutableList()
+        playlistAdapter.updateData(PlaylistPlaybackService.tracks)
+        binding.playlistEmptyText.visibility =
+            if (PlaylistPlaybackService.tracks.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        updatePlaylistPlaybackUi()
+    }
+
+    private fun updatePlaylistPlaybackUi() {
+        val engine = PlaylistPlaybackService.engine
+        val currentTrack = PlaylistPlaybackService.tracks.getOrNull(PlaylistPlaybackService.currentIndex)
+
+        playlistAdapter.playingTrackId = if (engine.isPlaying) currentTrack?.id else null
+
+        binding.nowPlayingTrackText.text = currentTrack?.title ?: getString(R.string.playlist_nothing_playing)
+        binding.playlistPlayPauseButton.text = getString(
+            if (engine.isPlaying && !engine.isPaused) R.string.pause else R.string.play
+        )
+
+        if (!userIsDraggingPlaylistSeekBar) {
+            val duration = engine.durationMs
+            val position = engine.positionMs
+            binding.playlistSeekBar.progress = if (duration > 0) ((position * 1000) / duration).toInt().coerceIn(0, 1000) else 0
+            binding.playlistPositionText.text = formatPlaylistTime(position)
+            binding.playlistDurationText.text = formatPlaylistTime(duration)
+        }
+    }
+
+    private fun formatPlaylistTime(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format(Locale.US, "%02d:%02d", minutes, seconds)
     }
 }

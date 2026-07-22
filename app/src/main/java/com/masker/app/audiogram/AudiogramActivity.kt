@@ -1,28 +1,19 @@
 package com.masker.app.audiogram
 
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
 import android.os.Bundle
-import android.os.Environment
 import android.view.View
-import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
 import com.masker.app.R
 import com.masker.app.databinding.ActivityAudiogramBinding
 import com.masker.app.report.PatientReport
 import com.masker.app.report.ReportQueueStorage
 import com.masker.app.report.ReportSendManager
 import com.masker.app.report.SheetsReportSender
-import java.io.File
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
+import com.masker.app.report.TinnitusScoreDialog
 import java.util.Date
-import java.util.Locale
 
 /**
  * فعالیت آزمون شنوایی (اودیوگرام). سه مرحله دارد: معرفی/تنظیم ولوم، انجام آزمون (پخش
@@ -248,26 +239,7 @@ class AudiogramActivity : AppCompatActivity() {
      * بهبود نرم‌افزار برای سازنده ارسال (یا در صورت نبود اینترنت، برای ارسال بعدی ذخیره) می‌شود.
      */
     private fun showTinnitusScoreDialog() {
-        try {
-            val dialogView = layoutInflater.inflate(R.layout.dialog_tinnitus_score, null)
-            val leftScoreEditText = dialogView.findViewById<EditText>(R.id.leftScoreEditText)
-            val rightScoreEditText = dialogView.findViewById<EditText>(R.id.rightScoreEditText)
-
-            AlertDialog.Builder(this)
-                .setTitle(R.string.tinnitus_score_dialog_title)
-                .setView(dialogView)
-                .setCancelable(true)
-                .setPositiveButton(R.string.submit) { _, _ ->
-                    val left = leftScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
-                    val right = rightScoreEditText.text?.toString()?.trim()?.toIntOrNull()?.coerceIn(0, 10)
-                    sendCheckpointReport(left, right)
-                }
-                .setNegativeButton(R.string.skip, null)
-                .show()
-        } catch (e: Exception) {
-            android.util.Log.e("AudiogramActivity", "Failed to show tinnitus score dialog", e)
-            Toast.makeText(this, "خطا در نمایش پنجره امتیاز: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        TinnitusScoreDialog.show(this) { left, right -> sendCheckpointReport(left, right) }
     }
 
     private fun sendCheckpointReport(leftScore: Int?, rightScore: Int?) {
@@ -339,49 +311,8 @@ class AudiogramActivity : AppCompatActivity() {
 
     // ==================== ذخیره و اشتراک‌گذاری تصویر ====================
 
-    private fun renderResultBitmap(): Bitmap? {
-        val view = binding.resultCaptureContainer
-        if (view.width == 0 || view.height == 0) return null
-        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        canvas.drawColor(Color.WHITE)
-        view.draw(canvas)
-        return bitmap
-    }
-
     private fun saveAudiogramImage(share: Boolean) {
-        val bitmap = renderResultBitmap()
-        if (bitmap == null) {
-            Toast.makeText(this, getString(R.string.save_failed), Toast.LENGTH_LONG).show()
-            return
-        }
-
-        val outDir = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "MaskerAudiograms")
-        if (!outDir.exists()) outDir.mkdirs()
-
-        val fileName = "audiogram_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".png"
-        val outFile = File(outDir, fileName)
-
-        try {
-            FileOutputStream(outFile).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-        } catch (e: Exception) {
-            Toast.makeText(this, getString(R.string.save_failed), Toast.LENGTH_LONG).show()
-            return
-        }
-
-        if (share) {
-            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", outFile)
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "image/png"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            startActivity(Intent.createChooser(intent, getString(R.string.share)))
-        } else {
-            Toast.makeText(this, getString(R.string.save_success) + "\n" + outFile.absolutePath, Toast.LENGTH_LONG).show()
-        }
+        AudiogramImageExporter.saveAndMaybeShare(this, binding.resultCaptureContainer, share)
     }
 
     override fun onDestroy() {
