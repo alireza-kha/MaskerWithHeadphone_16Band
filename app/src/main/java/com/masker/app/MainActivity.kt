@@ -14,7 +14,6 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -44,6 +43,7 @@ import com.masker.app.report.TinnitusScoreDialog
 import com.masker.app.schedule.ScheduleActivity
 import com.masker.app.service.PlaybackService
 import com.masker.app.storage.MaskerStorage
+import com.masker.app.ui.MessageDialog
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -319,7 +319,7 @@ class MainActivity : AppCompatActivity() {
                 val freqText = binding.notchFrequencyEditText.text?.toString()?.trim().orEmpty()
                 val freq = freqText.toDoubleOrNull()
                 if (freq == null || freq < 60.0 || freq > 16000.0) {
-                    Toast.makeText(this, R.string.notch_invalid_frequency, Toast.LENGTH_LONG).show()
+                    MessageDialog.show(this, R.string.notch_invalid_frequency)
                     return@setOnClickListener
                 }
                 val widthIndex = binding.notchWidthSpinner.selectedItemPosition
@@ -338,7 +338,7 @@ class MainActivity : AppCompatActivity() {
         binding.notchFromAudiogramButton.setOnClickListener {
             val result = AudiogramStorage.loadLastResult(this)
             if (result == null) {
-                Toast.makeText(this, R.string.notch_no_audiogram, Toast.LENGTH_LONG).show()
+                MessageDialog.show(this, R.string.notch_no_audiogram)
                 return@setOnClickListener
             }
 
@@ -357,16 +357,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (suggestedFreq == null) {
-                Toast.makeText(this, R.string.notch_no_audiogram, Toast.LENGTH_LONG).show()
+                MessageDialog.show(this, R.string.notch_no_audiogram)
                 return@setOnClickListener
             }
 
             binding.notchFrequencyEditText.setText(suggestedFreq.toInt().toString())
-            Toast.makeText(
-                this,
-                getString(R.string.notch_frequency_from_audiogram_toast, suggestedFreq.toInt().toString()),
-                Toast.LENGTH_SHORT
-            ).show()
+            MessageDialog.show(this, getString(R.string.notch_frequency_from_audiogram_toast, suggestedFreq.toInt().toString()))
         }
     }
 
@@ -389,7 +385,7 @@ class MainActivity : AppCompatActivity() {
         binding.optimizeFromAudiogramButton.setOnClickListener {
             val result = AudiogramStorage.loadLastResult(this)
             if (result == null) {
-                Toast.makeText(this, R.string.optimize_no_audiogram, Toast.LENGTH_LONG).show()
+                MessageDialog.show(this, R.string.optimize_no_audiogram)
                 return@setOnClickListener
             }
 
@@ -402,7 +398,7 @@ class MainActivity : AppCompatActivity() {
                 bandRowBindings[i].bandEditText.setText(progress.toString())
             }
 
-            Toast.makeText(this, R.string.optimize_applied_toast, Toast.LENGTH_LONG).show()
+            MessageDialog.show(this, R.string.optimize_applied_toast)
         }
     }
 
@@ -661,7 +657,7 @@ class MainActivity : AppCompatActivity() {
 
         if (!SheetsReportSender.isConfigured()) {
             ReportQueueStorage.enqueue(this, report)
-            Toast.makeText(this, R.string.report_not_configured_message, Toast.LENGTH_LONG).show()
+            MessageDialog.show(this, R.string.report_not_configured_message)
             return
         }
 
@@ -672,7 +668,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     getString(R.string.report_queued_message)
                 }
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                MessageDialog.show(this, message)
             }
         }
     }
@@ -730,7 +726,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     getString(R.string.save_failed)
                 }
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                MessageDialog.show(this, message)
             }
         }
     }
@@ -855,7 +851,7 @@ class MainActivity : AppCompatActivity() {
                 val freqText = binding.playlistNotchFrequencyEditText.text?.toString()?.trim().orEmpty()
                 val freq = freqText.toDoubleOrNull()
                 if (freq == null || freq < 60.0 || freq > 16000.0) {
-                    Toast.makeText(this, R.string.notch_invalid_frequency, Toast.LENGTH_LONG).show()
+                    MessageDialog.show(this, R.string.notch_invalid_frequency)
                     return@setOnClickListener
                 }
                 val widthIndex = binding.playlistNotchWidthSpinner.selectedItemPosition
@@ -948,7 +944,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 refreshPlaylistUI()
                 if (addedCount == 0) {
-                    Toast.makeText(this, R.string.playlist_import_failed, Toast.LENGTH_LONG).show()
+                    MessageDialog.show(this, R.string.playlist_import_failed)
                 }
             }
         }

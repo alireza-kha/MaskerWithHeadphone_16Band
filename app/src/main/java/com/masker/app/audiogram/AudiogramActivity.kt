@@ -3,7 +3,6 @@ package com.masker.app.audiogram
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.masker.app.R
@@ -13,6 +12,7 @@ import com.masker.app.report.ReportQueueStorage
 import com.masker.app.report.ReportSendManager
 import com.masker.app.report.SheetsReportSender
 import com.masker.app.report.TinnitusScoreDialog
+import com.masker.app.ui.MessageDialog
 import java.util.Date
 
 /**
@@ -90,11 +90,7 @@ class AudiogramActivity : AppCompatActivity() {
                 binding.patientNameEditText.setText(stored.patientName)
                 binding.patientAgeEditText.setText(stored.patientAge.toString())
                 binding.patientNameEditText.setSelection(binding.patientNameEditText.text?.length ?: 0)
-                Toast.makeText(
-                    this,
-                    getString(R.string.history_loaded_toast, stored.patientName),
-                    Toast.LENGTH_LONG
-                ).show()
+                MessageDialog.show(this, getString(R.string.history_loaded_toast, stored.patientName))
             }
         }
     }
@@ -104,12 +100,12 @@ class AudiogramActivity : AppCompatActivity() {
     private fun startTest() {
         val name = binding.patientNameEditText.text?.toString()?.trim().orEmpty()
         if (name.isEmpty()) {
-            Toast.makeText(this, R.string.patient_name_required, Toast.LENGTH_LONG).show()
+            MessageDialog.show(this, R.string.patient_name_required)
             return
         }
         val age = binding.patientAgeEditText.text?.toString()?.trim()?.toIntOrNull()
         if (age == null || age <= 0 || age > 130) {
-            Toast.makeText(this, R.string.patient_age_required, Toast.LENGTH_LONG).show()
+            MessageDialog.show(this, R.string.patient_age_required)
             return
         }
         patientName = name
@@ -255,7 +251,7 @@ class AudiogramActivity : AppCompatActivity() {
         if (!SheetsReportSender.isConfigured()) {
             // آدرس مقصد گزارش هنوز در local.properties تنظیم نشده؛ فقط محلی ذخیره می‌شود
             ReportQueueStorage.enqueue(this, report)
-            Toast.makeText(this, R.string.report_not_configured_message, Toast.LENGTH_LONG).show()
+            MessageDialog.show(this, R.string.report_not_configured_message)
             return
         }
 
@@ -266,7 +262,7 @@ class AudiogramActivity : AppCompatActivity() {
                 } else {
                     getString(R.string.report_queued_message)
                 }
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                MessageDialog.show(this, message)
             }
         }
     }

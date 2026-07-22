@@ -121,6 +121,7 @@
 
     <string name="submit">ثبت</string>
     <string name="skip">رد کردن</string>
+    <string name="ok">تأیید</string>
     <string name="tinnitus_score_dialog_title">میزان آزار وزوز گوش</string>
     <string name="tinnitus_score_dialog_message">همین الان، به وزوز هر گوش چه نمره‌ای از ۰ (اصلاً آزاردهنده نیست) تا ۱۰ (شدیدترین حالت) می‌دهید؟</string>
     <string name="tinnitus_score_hint">۰ تا ۱۰</string>

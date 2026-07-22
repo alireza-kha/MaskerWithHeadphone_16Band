@@ -6,10 +6,10 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.view.View
-import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.masker.app.R
 import com.masker.app.storage.MaskerStorage
+import com.masker.app.ui.MessageDialog
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -35,7 +35,7 @@ object AudiogramImageExporter {
     fun saveAndMaybeShare(activity: Activity, captureView: View, share: Boolean) {
         val bitmap = renderBitmap(captureView)
         if (bitmap == null) {
-            Toast.makeText(activity, R.string.save_failed, Toast.LENGTH_LONG).show()
+            MessageDialog.show(activity, R.string.save_failed)
             return
         }
 
@@ -48,7 +48,7 @@ object AudiogramImageExporter {
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
         } catch (e: Exception) {
-            Toast.makeText(activity, R.string.save_failed, Toast.LENGTH_LONG).show()
+            MessageDialog.show(activity, R.string.save_failed)
             return
         }
 
@@ -61,11 +61,7 @@ object AudiogramImageExporter {
             }
             activity.startActivity(Intent.createChooser(intent, activity.getString(R.string.share)))
         } else {
-            Toast.makeText(
-                activity,
-                activity.getString(R.string.save_success) + "\n" + outFile.absolutePath,
-                Toast.LENGTH_LONG
-            ).show()
+            MessageDialog.show(activity, activity.getString(R.string.save_success) + "\n" + outFile.absolutePath)
         }
     }
 }

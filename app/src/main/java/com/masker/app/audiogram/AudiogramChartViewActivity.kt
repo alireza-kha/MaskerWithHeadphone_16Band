@@ -1,7 +1,6 @@
 package com.masker.app.audiogram
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.masker.app.R
@@ -26,8 +25,11 @@ class AudiogramChartViewActivity : AppCompatActivity() {
         val timestamp = intent.getLongExtra(EXTRA_TIMESTAMP, -1L)
         val loaded = AudiogramStorage.loadAllResults(this).find { it.timestampMillis == timestamp }
         if (loaded == null) {
-            Toast.makeText(this, R.string.history_empty, Toast.LENGTH_LONG).show()
-            finish()
+            AlertDialog.Builder(this)
+                .setMessage(R.string.history_empty)
+                .setCancelable(false)
+                .setPositiveButton(R.string.ok) { _, _ -> finish() }
+                .show()
             return
         }
         result = loaded
