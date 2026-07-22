@@ -14,10 +14,12 @@ import java.net.URL
  * از BuildConfig (مقداردهی‌شده از local.properties، فایلی که هرگز به گیت‌هاب نمی‌رود)
  * خوانده می‌شود.
  *
- * نکته فنی: Google Apps Script Web App ها معمولاً با یک ریدایرکت ۳۰۲ به آدرس واقعی پاسخ
- * می‌دهند. HttpURLConnection به‌صورت پیش‌فرض بدنه POST را هنگام دنبال کردن ریدایرکت درست
- * منتقل نمی‌کند، برای همین اینجا ریدایرکت به‌صورت دستی و با ارسال مجدد همان بدنه دنبال
- * می‌شود.
+ * نکته فنی: Google Apps Script Web App ها معمولاً با یک ریدایرکت ۳۰۲ به یک آدرس
+ * script.googleusercontent.com پاسخ می‌دهند که فقط پاسخ از پیش آماده‌شده (نتیجه همان اجرای
+ * doPost که در همین درخواست اول انجام شد) را برمی‌گرداند — نه یک اجرای تازه. آن آدرس فقط
+ * GET را قبول می‌کند؛ ارسال دوباره POST به آن باعث کد پاسخ غیرموفق می‌شود، با اینکه اسکریپت
+ * قبلاً با موفقیت اجرا و در گوگل‌شیت ثبت شده است. برای همین، درخواست اول POST است ولی دنبال
+ * کردن ریدایرکت همیشه با GET (بدون بدنه) انجام می‌شود.
  */
 object SheetsReportSender {
 
@@ -60,28 +62,37 @@ object SheetsReportSender {
         }
     }
 
-    private fun postJson(urlString: String, body: ByteArray, redirectsLeft: Int = 5): Int {
+    private fun postJson(urlString: String, body: ByteArray): Int {
+        return sendRequest("POST", urlString, body, redirectsLeft = 5)
+    }
+
+    private fun sendRequest(method: String, urlString: String, body: ByteArray?, redirectsLeft: Int): Int {
         if (redirectsLeft <= 0) return -1
 
         val connection = URL(urlString).openConnection() as HttpURLConnection
         try {
             connection.instanceFollowRedirects = false
-            connection.requestMethod = "POST"
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            connection.requestMethod = method
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
-
-            connection.outputStream.use { it.write(body) }
+            if (method == "POST" && body != null) {
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                connection.outputStream.use { it.write(body) }
+            }
 
             val responseCode = connection.responseCode
             if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
                 responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                responseCode == 303 ||
                 responseCode == 307
             ) {
                 val redirectUrl = connection.getHeaderField("Location")
                 connection.disconnect()
-                return if (redirectUrl != null) postJson(redirectUrl, body, redirectsLeft - 1) else responseCode
+                // اجرای doPost همین‌جا (در همین درخواست POST اول) قبلاً کامل شده و در گوگل‌شیت
+                // ثبت شده؛ آدرس ریدایرکت فقط برای خواندن همان پاسخ آماده است، پس با GET دنبال
+                // می‌شود، نه POST دوباره
+                return if (redirectUrl != null) sendRequest("GET", redirectUrl, null, redirectsLeft - 1) else responseCode
             }
             return responseCode
         } finally {
