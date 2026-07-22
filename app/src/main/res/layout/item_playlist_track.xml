@@ -5,8 +5,31 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:padding="12dp"
+    android:padding="10dp"
     android:background="?attr/selectableItemBackground">
+
+    <FrameLayout
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:layout_marginEnd="12dp">
+
+        <ImageView
+            android:id="@+id/trackThumbnailImage"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_music_note_placeholder" />
+
+        <com.masker.app.playlist.EqualizerBarsView
+            android:id="@+id/trackPlayingIndicator"
+            android:layout_width="20dp"
+            android:layout_height="14dp"
+            android:layout_gravity="bottom|end"
+            android:background="#B3000000"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
     <TextView
         android:id="@+id/trackTitleText"

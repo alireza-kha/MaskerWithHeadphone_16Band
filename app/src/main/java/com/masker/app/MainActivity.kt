@@ -34,6 +34,7 @@ import com.masker.app.playlist.PlaylistAdapter
 import com.masker.app.playlist.PlaylistPlaybackService
 import com.masker.app.playlist.PlaylistPlayerEngine
 import com.masker.app.playlist.PlaylistStorage
+import com.masker.app.playlist.PlaylistThumbnails
 import com.masker.app.playlist.PlaylistTrack
 import com.masker.app.report.PatientReport
 import com.masker.app.report.ReportQueueStorage
@@ -933,6 +934,7 @@ class MainActivity : AppCompatActivity() {
                         addedAtMillis = System.currentTimeMillis()
                     )
                     PlaylistStorage.addTrack(this@MainActivity, track)
+                    PlaylistThumbnails.extractAndSave(this@MainActivity, destFile, track.id)
                     addedCount++
                 } catch (_: Exception) {
                     try {

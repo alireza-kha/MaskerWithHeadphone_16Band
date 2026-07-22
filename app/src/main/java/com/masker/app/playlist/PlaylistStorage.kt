@@ -74,6 +74,7 @@ object PlaylistStorage {
                 File(MaskerStorage.playlistDir(context), it.fileName).delete()
             } catch (_: Exception) {
             }
+            PlaylistThumbnails.deleteThumbnail(context, it.id)
         }
     }
 
