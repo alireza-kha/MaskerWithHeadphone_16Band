@@ -3,28 +3,27 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:padding="10dp"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="6dp"
     android:background="?attr/selectableItemBackground">
 
     <FrameLayout
-        android:layout_width="42dp"
-        android:layout_height="42dp"
-        android:layout_marginEnd="12dp">
+        android:layout_width="52dp"
+        android:layout_height="52dp">
 
         <ImageView
             android:id="@+id/trackThumbnailImage"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:scaleType="centerCrop"
             android:contentDescription="@null"
             android:src="@drawable/ic_music_note_placeholder" />
 
         <com.masker.app.playlist.EqualizerBarsView
             android:id="@+id/trackPlayingIndicator"
-            android:layout_width="20dp"
-            android:layout_height="14dp"
+            android:layout_width="22dp"
+            android:layout_height="15dp"
             android:layout_gravity="bottom|end"
             android:background="#B3000000"
             android:visibility="gone" />
@@ -33,18 +32,13 @@
 
     <TextView
         android:id="@+id/trackTitleText"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:textSize="15sp"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textSize="11sp"
         tools:text="آهنگ نمونه" />
-
-    <Button
-        android:id="@+id/removeTrackButton"
-        style="?android:attr/borderlessButtonStyle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/delete"
-        android:textSize="12sp" />
 
 </LinearLayout>

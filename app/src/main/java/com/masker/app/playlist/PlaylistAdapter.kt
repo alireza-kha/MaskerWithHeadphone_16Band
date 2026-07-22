@@ -12,7 +12,7 @@ import com.masker.app.databinding.ItemPlaylistTrackBinding
 class PlaylistAdapter(
     private val items: MutableList<PlaylistTrack>,
     private val onClick: (Int) -> Unit,
-    private val onRemove: (Int) -> Unit
+    private val onLongPress: (Int) -> Unit
 ) : RecyclerView.Adapter<PlaylistAdapter.ViewHolder>() {
 
     /** فقط وقتی واقعاً تغییر کند رفرش می‌شود، تا هر بار به‌روزرسانی نوار پیشرفت (هر ۵۰۰ میلی‌ثانیه)
@@ -58,7 +58,10 @@ class PlaylistAdapter(
         }
 
         b.root.setOnClickListener { onClick(holder.bindingAdapterPosition) }
-        b.removeTrackButton.setOnClickListener { onRemove(holder.bindingAdapterPosition) }
+        b.root.setOnLongClickListener {
+            onLongPress(holder.bindingAdapterPosition)
+            true
+        }
     }
 
     override fun onViewRecycled(holder: ViewHolder) {

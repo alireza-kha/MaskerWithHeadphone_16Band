@@ -19,7 +19,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import com.google.android.material.tabs.TabLayout
 import com.masker.app.audio.NoiseEngine
 import com.masker.app.audio.TonalEngine
@@ -738,9 +738,11 @@ class MainActivity : AppCompatActivity() {
         playlistAdapter = PlaylistAdapter(
             mutableListOf(),
             onClick = { position -> playPlaylistTrack(position) },
-            onRemove = { position -> removePlaylistTrack(position) }
+            onLongPress = { position -> confirmRemovePlaylistTrack(position) }
         )
-        binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
+        val screenWidthDp = resources.displayMetrics.widthPixels / resources.displayMetrics.density
+        val spanCount = (screenWidthDp / 78).toInt().coerceAtLeast(3)
+        binding.playlistRecyclerView.layoutManager = GridLayoutManager(this, spanCount)
         binding.playlistRecyclerView.adapter = playlistAdapter
 
         binding.addPlaylistFileButton.setOnClickListener {
@@ -900,6 +902,16 @@ class MainActivity : AppCompatActivity() {
     private fun sendPlaylistAction(action: String) {
         val intent = Intent(this, PlaylistPlaybackService::class.java).apply { this.action = action }
         startService(intent)
+    }
+
+    private fun confirmRemovePlaylistTrack(position: Int) {
+        val track = PlaylistPlaybackService.tracks.getOrNull(position) ?: return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.delete)
+            .setMessage(getString(R.string.playlist_remove_confirm, track.title))
+            .setPositiveButton(R.string.delete) { _, _ -> removePlaylistTrack(position) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun removePlaylistTrack(position: Int) {

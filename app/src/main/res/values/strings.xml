@@ -184,6 +184,7 @@
     <string name="playlist_add_files">افزودن فایل صوتی به پلی‌لیست</string>
     <string name="playlist_empty">هنوز هیچ آهنگی به پلی‌لیست اضافه نشده است</string>
     <string name="playlist_import_failed">افزودن فایل صوتی با خطا مواجه شد</string>
+    <string name="playlist_remove_confirm">آهنگ «%1$s» از پلی‌لیست حذف شود؟</string>
     <string name="playlist_nothing_playing">چیزی در حال پخش نیست</string>
     <string name="playlist_previous">قبلی</string>
     <string name="playlist_next">بعدی</string>
