@@ -3,7 +3,6 @@ package com.masker.app.audiogram
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
@@ -12,13 +11,16 @@ import kotlin.math.ln
 
 /**
  * رسم اودیوگرام: محور افقی فرکانس (مقیاس لگاریتمی، مطابق استاندارد اودیوگرام‌های بالینی)
- * و محور عمودی سطح شنوایی نسبی.
+ * و محور عمودی سطح شنوایی — درست مثل اودیوگرام‌های بالینی، عدد ۰ (بهترین شنوایی) بالای
+ * نمودار و عدد ۸۰ (نیاز به بلندترین صدا) پایین نمودار نوشته می‌شود.
  *
  * نمادها مطابق قرارداد متعارف در اودیوگرام‌های بالینی رسم می‌شوند:
  *  - گوش راست، بدون ماسک: دایره قرمز (○)
  *  - گوش چپ، بدون ماسک: ضربدر آبی (×)
- *  - گوش راست، با ماسک (بررسی اثر سایه): مثلث قرمز (△)
- *  - گوش چپ، با ماسک (بررسی اثر سایه): مربع آبی (□)
+ *  - گوش راست، با ماسک (بررسی اثر سایه، خودکار یا کامل): مثلث نارنجی (△)
+ *  - گوش چپ، با ماسک (بررسی اثر سایه، خودکار یا کامل): مربع بنفش (□)
+ *  - حلقه توخالی نارنجی دور یک نقطه: در آن نقطه، بلافاصله پیش از آزمودنش یک «کوشش کنترلی»
+ *    (بدون پخش صدا) هم پاسخ مثبت کاذب داشته؛ ممکن است آستانه آن نقطه کاملاً قابل‌اعتماد نباشد.
  */
 class AudiogramView @JvmOverloads constructor(
     context: Context,
@@ -54,17 +56,22 @@ class AudiogramView @JvmOverloads constructor(
         strokeWidth = 4f
         style = Paint.Style.STROKE
     }
+    // رنگ‌های تازه و کاملاً متفاوت از دایره/ضربدر معمولی، تا خطوط ماسک‌شده (چه بررسی جزئی
+    // خودکار، چه آزمون کامل اثر سایه) به‌وضوح از خطوط بدون‌ماسک قابل تشخیص باشند
     private val rightMaskedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.RED
+        color = Color.parseColor("#FF8F00") // نارنجی/کهربایی
         strokeWidth = 4f
         style = Paint.Style.STROKE
-        pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
     }
     private val leftMaskedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLUE
+        color = Color.parseColor("#7B1FA2") // بنفش
         strokeWidth = 4f
         style = Paint.Style.STROKE
-        pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+    }
+    private val reliabilityPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FB8C00")
+        strokeWidth = 3f
+        style = Paint.Style.STROKE
     }
 
     private val marginLeft = 90f
@@ -92,13 +99,15 @@ class AudiogramView @JvmOverloads constructor(
         val chartTop = marginTop
         val chartBottom = height - marginBottom
 
-        // خطوط شبکه افقی (سطوح شنوایی) + برچسب
+        // خطوط شبکه افقی (سطوح شنوایی) + برچسب؛ برچسب برعکسِ مقدار داخلی «تضعیف» است، تا
+        // مثل اودیوگرام‌های بالینی، ۰ بالای نمودار و ۸۰ پایین نمودار نوشته شود
         val steps = 8
         for (i in 0..steps) {
             val atten = minAttenuation + (maxAttenuation - minAttenuation) * i / steps
             val y = attenuationToY(atten, chartTop, chartBottom)
             canvas.drawLine(chartLeft, y, chartRight, y, gridPaint)
-            canvas.drawText(atten.toInt().toString(), marginLeft - 50f, y + 8f, textPaint)
+            val displayLabel = (maxAttenuation - atten).toInt().toString()
+            canvas.drawText(displayLabel, marginLeft - 50f, y + 8f, textPaint)
         }
 
         // محورها
@@ -117,6 +126,9 @@ class AudiogramView @JvmOverloads constructor(
 
         drawEarLine(canvas, r.frequenciesHz, r.rightThresholdsDb, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, rightPaint, Symbol.CIRCLE)
         drawEarLine(canvas, r.frequenciesHz, r.leftThresholdsDb, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, leftPaint, Symbol.CROSS)
+
+        drawReliabilityFlags(canvas, r.frequenciesHz, r.rightThresholdsDb, r.unreliableRightFreqIndices, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom)
+        drawReliabilityFlags(canvas, r.frequenciesHz, r.leftThresholdsDb, r.unreliableLeftFreqIndices, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom)
 
         r.rightMaskedThresholdsDb?.let {
             drawEarLine(canvas, r.frequenciesHz, it, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, rightMaskedPaint, Symbol.TRIANGLE)
@@ -171,19 +183,41 @@ class AudiogramView @JvmOverloads constructor(
                     trianglePath.close()
                     val fillPaint = Paint(paint)
                     fillPaint.style = Paint.Style.STROKE
-                    fillPaint.pathEffect = null
                     canvas.drawPath(trianglePath, fillPaint)
                 }
                 Symbol.SQUARE -> {
                     val squarePaint = Paint(paint)
                     squarePaint.style = Paint.Style.STROKE
-                    squarePaint.pathEffect = null
                     canvas.drawRect(x - r, y - r, x + r, y + r, squarePaint)
                 }
             }
         }
 
         canvas.drawPath(path, paint)
+    }
+
+    /** حلقه توخالی نارنجی دور نقاطی که با یک کوشش کنترلی ناموفق (پاسخ مثبت کاذب) همراه بودند */
+    private fun drawReliabilityFlags(
+        canvas: Canvas,
+        frequencies: List<Double>,
+        thresholds: FloatArray,
+        flaggedIndices: Set<Int>,
+        minFreq: Double,
+        maxFreq: Double,
+        chartLeft: Float,
+        chartRight: Float,
+        chartTop: Float,
+        chartBottom: Float
+    ) {
+        if (flaggedIndices.isEmpty()) return
+        for (i in frequencies.indices) {
+            if (i !in flaggedIndices) continue
+            val level = thresholds.getOrNull(i) ?: continue
+            if (level.isNaN()) continue
+            val x = frequencyToX(frequencies[i], minFreq, maxFreq, chartLeft, chartRight)
+            val y = attenuationToY(level, chartTop, chartBottom)
+            canvas.drawCircle(x, y, 22f, reliabilityPaint)
+        }
     }
 
     private fun attenuationToY(atten: Float, chartTop: Float, chartBottom: Float): Float {

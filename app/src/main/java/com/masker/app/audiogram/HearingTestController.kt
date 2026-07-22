@@ -1,19 +1,35 @@
 package com.masker.app.audiogram
 
 /**
- * موتور منطقی آزمون شنوایی؛ پیاده‌سازی ساده‌شده روش «هیوز-وستلیک» (Hughson-Westlake) که
- * روش استاندارد و رایج علمی برای یافتن آستانه شنوایی در سنجش شنوایی بالینی است
- * (کاهش ۱۰ واحدی پس از شنیدن، افزایش ۵ واحدی پس از نشنیدن، و تأیید آستانه با حداقل
- * دو پاسخ مثبت هم‌سطح در مسیر صعودی).
+ * موتور منطقی آزمون شنوایی؛ برای هر بلوک (یک گوش + یک فرکانس مشخص) از روش استاندارد
+ * «هیوز-وستلیک» (Hughson-Westlake) استفاده می‌کند (کاهش ۱۰ واحدی پس از شنیدن، افزایش ۵
+ * واحدی پس از نشنیدن، و تأیید آستانه با حداقل دو پاسخ مثبت هم‌سطح در مسیر صعودی).
+ *
+ * فهرست [blocks] دقیقاً همان (گوش، فرکانس) هایی است که باید آزموده شوند — می‌تواند همه
+ * ترکیب‌های گوش×فرکانس باشد (آزمون اصلی)، یا فقط زیرمجموعه‌ای خاص (مثلاً بررسی خودکار
+ * ماسکینگ فقط در فرکانس‌هایی که معیار تضعیف بین‌گوشی را رد کرده‌اند).
+ *
+ * برای افزایش پایایی پاسخ‌ها، بر پایه پژوهش‌های اودیومتری خودکار امروزی، دو تکنیک اضافه
+ * شده است:
+ *  ۱) ترتیب بلوک‌ها به‌صورت تصادفی به هم می‌ریزد (نه گوش راست کامل سپس گوش چپ کامل) تا مغز
+ *     نتواند الگوی آزمون را حدس بزند و پیش از شنیدن واقعی صدا پاسخ ندهد.
+ *  ۲) چند «کوشش کنترلی» (Catch Trial) بدون پخش هیچ صدایی به‌طور تصادفی در میان بلوک‌ها درج
+ *     می‌شود؛ اگر کاربر در این کوشش‌ها هم دکمه «شنیدم» را بزند (پاسخ مثبت کاذب، نشانه حدس
+ *     زدن یا انتظار الگو)، بلوک واقعی بعدی به‌عنوان «نیازمند احتیاط در تفسیر» علامت می‌خورد.
  *
  * نکته: چون این آزمون روی خروجی هدفون کاربر و بدون کالیبراسیون آزمایشگاهی انجام می‌شود،
  * نتیجه یک سنجش نسبی و شخصی است، نه معادل تشخیص بالینی dB HL.
  */
 class HearingTestController(
     private val frequenciesHz: List<Double>,
+    blocks: List<Pair<Ear, Int>>,
+    catchTrialCount: Int = 0,
     private val onPlayTone: (ear: Ear, freqHz: Double, attenuationDb: Float) -> Unit,
-    private val onProgress: (ear: Ear, freqIndex: Int, totalFreq: Int) -> Unit,
-    private val onFinished: (AudiogramResult) -> Unit
+    private val onPlayCatchTrial: () -> Unit,
+    private val onProgress: (ear: Ear, freqIndex: Int, completedBlocks: Int, totalBlocks: Int) -> Unit,
+    private val onBlockFinished: (ear: Ear, freqIndex: Int, thresholdDb: Float) -> Unit,
+    private val onCatchTrialFailed: (flaggedEar: Ear?, flaggedFreqIndex: Int?) -> Unit,
+    private val onFinished: () -> Unit
 ) {
     companion object {
         private const val START_ATTENUATION = 20f   // شروع از سطحی نسبتاً بلند و واضح
@@ -22,32 +38,64 @@ class HearingTestController(
         private const val MAX_TRIALS_PER_FREQUENCY = 12
     }
 
+    private sealed class TestBlock {
+        data class Tone(val ear: Ear, val freqIndex: Int) : TestBlock()
+        object Catch : TestBlock()
+    }
+
     private enum class Phase { AFTER_HEARD, AFTER_NOT_HEARD }
 
-    private val rightThresholds = FloatArray(frequenciesHz.size) { Float.NaN }
-    private val leftThresholds = FloatArray(frequenciesHz.size) { Float.NaN }
+    private val queue: MutableList<TestBlock> = mutableListOf()
+    private val totalToneBlocks: Int = blocks.size
+    private var completedBlocks = 0
+    private var awaitingCatchResponse = false
 
-    private val earQueue = mutableListOf(Ear.RIGHT, Ear.LEFT)
     private var currentEar = Ear.RIGHT
     private var freqIndex = 0
-
     private var currentLevel = START_ATTENUATION
     private var phase = Phase.AFTER_HEARD
     private val hitsAtLevel = mutableMapOf<Float, Int>()
     private var trialsThisFrequency = 0
 
-    fun start() {
-        currentEar = earQueue.removeAt(0)
-        freqIndex = 0
-        beginFrequency()
+    init {
+        queue.addAll(blocks.map { TestBlock.Tone(it.first, it.second) }.shuffled())
+        // درج تصادفی کوشش‌های کنترلی در میان بلوک‌های واقعی (نه دقیقاً در ابتدا یا انتهای صف)
+        repeat(catchTrialCount) {
+            if (queue.size > 1) {
+                val insertAt = (1 until queue.size).random()
+                queue.add(insertAt, TestBlock.Catch)
+            }
+        }
     }
 
-    private fun beginFrequency() {
+    fun start() {
+        advanceToNextBlock()
+    }
+
+    private fun advanceToNextBlock() {
+        if (queue.isEmpty()) {
+            onFinished()
+            return
+        }
+        when (val block = queue.removeAt(0)) {
+            is TestBlock.Catch -> {
+                awaitingCatchResponse = true
+                onPlayCatchTrial()
+            }
+            is TestBlock.Tone -> {
+                currentEar = block.ear
+                freqIndex = block.freqIndex
+                beginFrequencyBlock()
+            }
+        }
+    }
+
+    private fun beginFrequencyBlock() {
         currentLevel = START_ATTENUATION
         phase = Phase.AFTER_HEARD
         hitsAtLevel.clear()
         trialsThisFrequency = 0
-        onProgress(currentEar, freqIndex, frequenciesHz.size)
+        onProgress(currentEar, freqIndex, completedBlocks, totalToneBlocks)
         presentTone()
     }
 
@@ -55,8 +103,18 @@ class HearingTestController(
         onPlayTone(currentEar, frequenciesHz[freqIndex], currentLevel)
     }
 
-    /** باید پس از هر بار پخش، با پاسخ کاربر (شنیدم / نشنیدم) صدا زده شود */
+    /** باید پس از هر بار پخش (یا هر کوشش کنترلی)، با پاسخ کاربر (شنیدم / نشنیدم) صدا زده شود */
     fun onResponse(heard: Boolean) {
+        if (awaitingCatchResponse) {
+            awaitingCatchResponse = false
+            if (heard) {
+                val nextTone = queue.firstOrNull { it is TestBlock.Tone } as? TestBlock.Tone
+                onCatchTrialFailed(nextTone?.ear, nextTone?.freqIndex)
+            }
+            advanceToNextBlock()
+            return
+        }
+
         trialsThisFrequency++
 
         if (phase == Phase.AFTER_HEARD) {
@@ -102,18 +160,8 @@ class HearingTestController(
     }
 
     private fun finalizeThreshold(level: Float) {
-        if (currentEar == Ear.RIGHT) rightThresholds[freqIndex] = level
-        else leftThresholds[freqIndex] = level
-
-        freqIndex++
-        if (freqIndex < frequenciesHz.size) {
-            beginFrequency()
-        } else if (earQueue.isNotEmpty()) {
-            currentEar = earQueue.removeAt(0)
-            freqIndex = 0
-            beginFrequency()
-        } else {
-            onFinished(AudiogramResult(frequenciesHz, rightThresholds, leftThresholds, System.currentTimeMillis()))
-        }
+        onBlockFinished(currentEar, freqIndex, level)
+        completedBlocks++
+        advanceToNextBlock()
     }
 }

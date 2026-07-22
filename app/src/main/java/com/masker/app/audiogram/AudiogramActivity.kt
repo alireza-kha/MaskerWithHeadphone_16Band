@@ -14,16 +14,23 @@ import com.masker.app.report.SheetsReportSender
 import com.masker.app.report.TinnitusScoreDialog
 import com.masker.app.ui.MessageDialog
 import java.util.Date
+import kotlin.math.abs
 
 /**
  * فعالیت آزمون شنوایی (اودیوگرام). سه مرحله دارد: معرفی/تنظیم ولوم، انجام آزمون (پخش
  * پالسی/بیپ‌بیپ تن و دریافت پاسخ کاربر با دو دکمه «می‌شنوم»/«نمی‌شنوم» برای هر گوش/فرکانس)، و
  * نمایش نتیجه به‌صورت نمودار قابل ذخیره و اشتراک‌گذاری.
  *
- * پس از پایان آزمون معمولی، از کاربر پرسیده می‌شود که آیا مایل است «اثر سایه»
- * (Cross-hearing) هم بررسی شود؛ در صورت تأیید، همان آزمون یک‌بار دیگر تکرار می‌شود، این‌بار
- * با پخش هم‌زمان نویز ماسک‌کننده در گوش مقابل — دقیقاً همان روش استاندارد ماسکینگ در
- * اودیومتری بالینی. نتایج ماسک‌شده با نمادهای استاندارد اودیولوژی (مثلث/مربع) رسم می‌شوند.
+ * ترتیب آزمون گوش/فرکانس‌ها تصادفی است (نه ابتدا گوش راست کامل سپس چپ کامل) و چند «کوشش
+ * کنترلی» بدون پخش صدا هم به‌طور تصادفی درج می‌شود — هر دو برای کاهش احتمال پاسخ نابه‌جا
+ * ناشی از حدس‌زدن الگوی آزمون توسط مغز (به‌جای شنیدن واقعی صدا).
+ *
+ * پس از پایان آزمون اصلی، بر پایه معیار بالینی «تضعیف بین‌گوشی» (Interaural Attenuation)،
+ * برنامه به‌طور خودکار بررسی می‌کند که آیا در هر فرکانس نیاز به تأیید با نویز ماسک‌کننده
+ * («اثر سایه» / Cross-hearing) هست یا نه؛ در صورت نیاز، همان‌جا (در همین آزمون اول) فقط آن
+ * نقاط با ماسک بازآزموده می‌شوند. جدای از این، از کاربر پرسیده می‌شود که آیا مایل است آزمون
+ * کامل «اثر سایه» را هم برای همه فرکانس‌ها انجام دهد؛ در صورت تأیید، همان آزمون یک‌بار دیگر
+ * با ماسک تکرار می‌شود. نتایج ماسک‌شده با نمادهای استاندارد اودیولوژی (مثلث/مربع) رسم می‌شوند.
  *
  * از صفحه سوابق («جست‌وجوی سابقه») می‌توان نام و سن یک فرد قبلی را انتخاب کرد تا این
  * اطلاعات در فیلدهای این صفحه از پیش پر شوند و آماده اجرای یک آزمون جدید برای همان فرد باشند.
@@ -40,6 +47,15 @@ class AudiogramActivity : AppCompatActivity() {
 
         // سطح نویز ماسک‌کننده در گوش مقابل، هنگام بررسی اثر سایه (مقیاس نسبی ساده‌شده)
         private const val MASKING_ATTENUATION_DB = 15f
+
+        // معیار بالینی رایج: با هدفون معمولی (Supra-aural)، اگر اختلاف آستانه دو گوش در یک
+        // فرکانس ۴۰ دسی‌بل یا بیشتر باشد، ممکن است پاسخ گوش ضعیف‌تر در واقع نتیجه شنیدن همان
+        // صدا توسط گوش قوی‌تر (تضعیف بین‌گوشی/انتقال درون‌جمجمه‌ای) باشد، نه گوش آزموده؛ در
+        // این حالت باید با نویز ماسک‌کننده در گوش قوی‌تر، آستانه گوش ضعیف‌تر تأیید شود.
+        private const val INTERAURAL_MASKING_THRESHOLD_DB = 40f
+
+        private const val MAIN_PHASE_CATCH_TRIALS = 3
+        private const val FULL_MASKED_PHASE_CATCH_TRIALS = 2
     }
 
     private lateinit var binding: ActivityAudiogramBinding
@@ -51,10 +67,20 @@ class AudiogramActivity : AppCompatActivity() {
     private var pendingEar: Ear? = null
     private var pendingFreqHz: Double = 0.0
     private var pendingAttenuation: Float = 0f
+    private var pendingIsCatchTrial = false
 
     private var patientName: String = ""
     private var patientAge: Int = 0
-    private var pendingUnmaskedResult: AudiogramResult? = null
+
+    // انباشت تدریجی نتایج آزمون در حین اجرا (چون ترتیب بلوک‌ها تصادفی است و ممکن است چند
+    // مرحله پشت سر هم اجرا شود: اصلی، بررسی خودکار ماسکینگ، و در صورت انتخاب کاربر، اثر سایه کامل)
+    private var rightThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var leftThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var rightMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var leftMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var hasMaskedData = false
+    private val unreliableRight = mutableSetOf<Int>()
+    private val unreliableLeft = mutableSetOf<Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -110,14 +136,33 @@ class AudiogramActivity : AppCompatActivity() {
         }
         patientName = name
         patientAge = age
+        resetAccumulators()
 
-        runTestPhase(masked = false) { result ->
-            pendingUnmaskedResult = result.copy(patientName = patientName, patientAge = patientAge)
-            askCrossHearingQuestion()
+        runTestPhase(masked = false, blocks = allEarFrequencyBlocks(), catchTrialCount = MAIN_PHASE_CATCH_TRIALS) {
+            onMainPhaseFinished()
         }
     }
 
-    private fun runTestPhase(masked: Boolean, onDone: (AudiogramResult) -> Unit) {
+    private fun allEarFrequencyBlocks(): List<Pair<Ear, Int>> {
+        return TEST_FREQUENCIES.indices.flatMap { idx -> listOf(Ear.RIGHT to idx, Ear.LEFT to idx) }
+    }
+
+    private fun resetAccumulators() {
+        rightThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        leftThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        rightMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        leftMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        hasMaskedData = false
+        unreliableRight.clear()
+        unreliableLeft.clear()
+    }
+
+    private fun runTestPhase(
+        masked: Boolean,
+        blocks: List<Pair<Ear, Int>>,
+        catchTrialCount: Int,
+        onPhaseDone: () -> Unit
+    ) {
         isMaskedPhase = masked
         binding.testMaskingBadge.visibility = if (masked) View.VISIBLE else View.GONE
 
@@ -131,12 +176,61 @@ class AudiogramActivity : AppCompatActivity() {
 
         val newController = HearingTestController(
             frequenciesHz = TEST_FREQUENCIES,
+            blocks = blocks,
+            catchTrialCount = catchTrialCount,
             onPlayTone = { ear, freqHz, attenuationDb -> playTestTone(ear, freqHz, attenuationDb) },
-            onProgress = { ear, freqIndex, totalFreq -> updateProgress(ear, freqIndex, totalFreq) },
-            onFinished = { result -> onDone(result) }
+            onPlayCatchTrial = { playCatchTrial() },
+            onProgress = { ear, freqIndex, completed, total -> updateProgress(ear, freqIndex, completed, total) },
+            onBlockFinished = { ear, freqIndex, thresholdDb -> recordBlockResult(masked, ear, freqIndex, thresholdDb) },
+            onCatchTrialFailed = { ear, freqIndex -> recordUnreliable(ear, freqIndex) },
+            onFinished = { onPhaseDone() }
         )
         controller = newController
         newController.start()
+    }
+
+    private fun recordBlockResult(masked: Boolean, ear: Ear, freqIndex: Int, thresholdDb: Float) {
+        if (masked) {
+            hasMaskedData = true
+            if (ear == Ear.RIGHT) rightMasked[freqIndex] = thresholdDb else leftMasked[freqIndex] = thresholdDb
+        } else {
+            if (ear == Ear.RIGHT) rightThresholds[freqIndex] = thresholdDb else leftThresholds[freqIndex] = thresholdDb
+        }
+    }
+
+    private fun recordUnreliable(ear: Ear?, freqIndex: Int?) {
+        if (ear == null || freqIndex == null) return
+        if (ear == Ear.RIGHT) unreliableRight.add(freqIndex) else unreliableLeft.add(freqIndex)
+    }
+
+    private fun onMainPhaseFinished() {
+        val flaggedBlocks = findFrequenciesNeedingMasking()
+        if (flaggedBlocks.isNotEmpty()) {
+            runTestPhase(masked = true, blocks = flaggedBlocks, catchTrialCount = 0) {
+                askCrossHearingQuestion()
+            }
+        } else {
+            askCrossHearingQuestion()
+        }
+    }
+
+    /**
+     * بر پایه معیار بالینی رایج تضعیف بین‌گوشی (Interaural Attenuation): فرکانس‌هایی که
+     * اختلاف آستانه دو گوش در آن‌ها به [INTERAURAL_MASKING_THRESHOLD_DB] یا بیشتر می‌رسد را
+     * برمی‌گرداند، به‌همراه گوشِ ضعیف‌تر (که باید با ماسک دوباره آزموده شود).
+     */
+    private fun findFrequenciesNeedingMasking(): List<Pair<Ear, Int>> {
+        val result = mutableListOf<Pair<Ear, Int>>()
+        for (i in TEST_FREQUENCIES.indices) {
+            val r = rightThresholds.getOrNull(i)?.takeIf { !it.isNaN() } ?: continue
+            val l = leftThresholds.getOrNull(i)?.takeIf { !it.isNaN() } ?: continue
+            if (abs(r - l) >= INTERAURAL_MASKING_THRESHOLD_DB) {
+                // آستانه پایین‌تر یعنی به صدای بلندتری نیاز داشته = گوش ضعیف‌تر همان‌جاست
+                val weakerEar = if (r < l) Ear.RIGHT else Ear.LEFT
+                result.add(weakerEar to i)
+            }
+        }
+        return result
     }
 
     private fun askCrossHearingQuestion() {
@@ -145,24 +239,34 @@ class AudiogramActivity : AppCompatActivity() {
             .setTitle(R.string.cross_hearing_dialog_title)
             .setMessage(R.string.cross_hearing_dialog_message)
             .setCancelable(false)
-            .setPositiveButton(R.string.yes) { _, _ -> runMaskedPhase() }
-            .setNegativeButton(R.string.no) { _, _ ->
-                pendingUnmaskedResult?.let { finalizeAndShow(it) }
-            }
+            .setPositiveButton(R.string.yes) { _, _ -> runFullMaskedPhase() }
+            .setNegativeButton(R.string.no) { _, _ -> finalizeAndShow() }
             .show()
     }
 
-    private fun runMaskedPhase() {
-        runTestPhase(masked = true) { maskedResult ->
-            val combined = pendingUnmaskedResult?.copy(
-                rightMaskedThresholdsDb = maskedResult.rightThresholdsDb,
-                leftMaskedThresholdsDb = maskedResult.leftThresholdsDb
-            )
-            combined?.let { finalizeAndShow(it) }
+    private fun runFullMaskedPhase() {
+        runTestPhase(masked = true, blocks = allEarFrequencyBlocks(), catchTrialCount = FULL_MASKED_PHASE_CATCH_TRIALS) {
+            finalizeAndShow()
         }
     }
 
-    private fun finalizeAndShow(result: AudiogramResult) {
+    private fun buildCurrentResult(): AudiogramResult {
+        return AudiogramResult(
+            frequenciesHz = TEST_FREQUENCIES,
+            rightThresholdsDb = rightThresholds,
+            leftThresholdsDb = leftThresholds,
+            timestampMillis = System.currentTimeMillis(),
+            patientName = patientName,
+            patientAge = patientAge,
+            rightMaskedThresholdsDb = if (hasMaskedData) rightMasked else null,
+            leftMaskedThresholdsDb = if (hasMaskedData) leftMasked else null,
+            unreliableRightFreqIndices = unreliableRight.toSet(),
+            unreliableLeftFreqIndices = unreliableLeft.toSet()
+        )
+    }
+
+    private fun finalizeAndShow() {
+        val result = buildCurrentResult()
         AudiogramStorage.saveResult(this, result)
 
         binding.testSection.visibility = View.GONE
@@ -172,21 +276,20 @@ class AudiogramActivity : AppCompatActivity() {
         updateLegendText(result)
     }
 
-    private fun updateProgress(ear: Ear, freqIndex: Int, totalFreq: Int) {
+    private fun updateProgress(ear: Ear, freqIndex: Int, completedBlocks: Int, totalBlocks: Int) {
         val earLabel = if (ear == Ear.RIGHT) getString(R.string.right_ear) else getString(R.string.left_ear)
         val freqLabel = formatFrequencyLabel(TEST_FREQUENCIES[freqIndex])
-        binding.testStatusText.text = getString(R.string.audiogram_progress_format, earLabel, freqIndex + 1, totalFreq, freqLabel)
-
-        val earOffset = if (ear == Ear.RIGHT) 0 else totalFreq
-        val doneSteps = earOffset + freqIndex
-        val totalSteps = totalFreq * 2
-        binding.testProgressBar.progress = (doneSteps * 100 / totalSteps)
+        binding.testStatusText.text = getString(
+            R.string.audiogram_progress_format, earLabel, completedBlocks + 1, totalBlocks, freqLabel
+        )
+        binding.testProgressBar.progress = if (totalBlocks > 0) (completedBlocks * 100 / totalBlocks) else 0
     }
 
     private fun playTestTone(ear: Ear, freqHz: Double, attenuationDb: Float) {
         pendingEar = ear
         pendingFreqHz = freqHz
         pendingAttenuation = attenuationDb
+        pendingIsCatchTrial = false
 
         binding.hearButton.isEnabled = true
         binding.dontHearButton.isEnabled = true
@@ -196,6 +299,13 @@ class AudiogramActivity : AppCompatActivity() {
             maskingEnabled = isMaskedPhase,
             maskingAttenuationDb = MASKING_ATTENUATION_DB
         )
+    }
+
+    /** کوشش کنترلی: هیچ صدایی پخش نمی‌شود، فقط منتظر پاسخ کاربر می‌مانیم (برای سنجش پاسخ مثبت کاذب) */
+    private fun playCatchTrial() {
+        pendingIsCatchTrial = true
+        binding.hearButton.isEnabled = true
+        binding.dontHearButton.isEnabled = true
     }
 
     private fun onUserResponded(heard: Boolean) {
@@ -212,9 +322,14 @@ class AudiogramActivity : AppCompatActivity() {
             binding.pauseResumeButton.text = getString(R.string.pause_test)
             binding.pausedStatusText.visibility = View.GONE
 
-            val ear = pendingEar
-            if (ear != null) {
-                playTestTone(ear, pendingFreqHz, pendingAttenuation)
+            if (pendingIsCatchTrial) {
+                binding.hearButton.isEnabled = true
+                binding.dontHearButton.isEnabled = true
+            } else {
+                val ear = pendingEar
+                if (ear != null) {
+                    playTestTone(ear, pendingFreqHz, pendingAttenuation)
+                }
             }
         } else {
             isPaused = true
@@ -243,7 +358,7 @@ class AudiogramActivity : AppCompatActivity() {
             context = this,
             patientName = patientName.ifBlank { binding.patientNameEditText.text?.toString().orEmpty() },
             patientAge = if (patientAge > 0) patientAge else (binding.patientAgeEditText.text?.toString()?.toIntOrNull() ?: 0),
-            audiogramResult = pendingUnmaskedResult,
+            audiogramResult = buildCurrentResult(),
             leftTinnitusScore = leftScore,
             rightTinnitusScore = rightScore
         )
@@ -271,9 +386,10 @@ class AudiogramActivity : AppCompatActivity() {
         HearingTestTonePlayer.stop()
         isPaused = false
         pendingEar = null
+        pendingIsCatchTrial = false
         controller = null
         isMaskedPhase = false
-        pendingUnmaskedResult = null
+        resetAccumulators()
 
         binding.pauseResumeButton.text = getString(R.string.pause_test)
         binding.pausedStatusText.visibility = View.GONE
@@ -299,10 +415,7 @@ class AudiogramActivity : AppCompatActivity() {
     }
 
     private fun updateLegendText(result: AudiogramResult) {
-        val hasMasked = result.rightMaskedThresholdsDb != null || result.leftMaskedThresholdsDb != null
-        binding.legendText.text = getString(
-            if (hasMasked) R.string.audiogram_legend_with_masked else R.string.audiogram_legend
-        )
+        binding.legendText.text = AudiogramLegend.build(this, result)
     }
 
     // ==================== ذخیره و اشتراک‌گذاری تصویر ====================

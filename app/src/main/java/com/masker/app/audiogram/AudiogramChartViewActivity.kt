@@ -71,9 +71,6 @@ class AudiogramChartViewActivity : AppCompatActivity() {
     }
 
     private fun updateLegendText(result: AudiogramResult) {
-        val hasMasked = result.rightMaskedThresholdsDb != null || result.leftMaskedThresholdsDb != null
-        binding.legendText.text = getString(
-            if (hasMasked) R.string.audiogram_legend_with_masked else R.string.audiogram_legend
-        )
+        binding.legendText.text = AudiogramLegend.build(this, result)
     }
 }
