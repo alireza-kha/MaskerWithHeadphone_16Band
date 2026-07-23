@@ -18,6 +18,7 @@ import java.io.File
 object AudiogramStorage {
     private const val PREFS_NAME = "masker_audiogram"
     private const val KEY_RESULTS_LIST = "results_list"
+    private const val KEY_SELECTED_TIMESTAMP = "selected_result_timestamp"
     private const val FILE_NAME = "audiogram_history.json"
 
     /** افزودن یک نتیجه جدید به تاریخچه (تاریخچه قبلی حفظ می‌شود) */
@@ -115,6 +116,29 @@ object AudiogramStorage {
         return loadAllResults(context)
             .filter { it.patientName == patientName }
             .maxByOrNull { it.timestampMillis }
+    }
+
+    /**
+     * علامت‌گذاری یک نتیجه به‌عنوان «سابقهٔ انتخاب‌شده» — مبنای تمام اقدام‌های
+     * «فراخوانی تنظیمات از اودیوگرام» در سراسر برنامه (نوچ، اکولایزر پلی‌لیست، سمعک و...)
+     */
+    fun setSelectedResult(context: Context, timestampMillis: Long) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(KEY_SELECTED_TIMESTAMP, timestampMillis)
+            .apply()
+    }
+
+    /**
+     * نتیجهٔ انتخاب‌شده توسط کاربر؛ اگر چیزی انتخاب نشده یا دیگر در تاریخچه نیست،
+     * به‌صورت پیش‌فرض جدیدترین نتیجهٔ ثبت‌شده بازگردانده می‌شود.
+     */
+    fun loadSelectedResult(context: Context): AudiogramResult? {
+        val selectedTimestamp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(KEY_SELECTED_TIMESTAMP, -1L)
+        if (selectedTimestamp <= 0L) return loadLastResult(context)
+        val all = loadAllResults(context)
+        return all.find { it.timestampMillis == selectedTimestamp } ?: loadLastResult(context)
     }
 
     data class PatientSummary(

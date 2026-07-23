@@ -35,6 +35,12 @@ object SettingsStorage {
     private const val KEY_PLAYLIST_EQ_RIGHT_PREFIX = "playlist_eq_right_"
     private const val KEY_PLAYLIST_EQ_LEFT_PREFIX = "playlist_eq_left_"
 
+    private const val KEY_HEARING_AID_MASTER_GAIN = "hearing_aid_master_gain"
+    private const val KEY_HEARING_AID_LEFT_VOLUME = "hearing_aid_left_volume"
+    private const val KEY_HEARING_AID_RIGHT_VOLUME = "hearing_aid_right_volume"
+    private const val KEY_HEARING_AID_EQ_RIGHT_PREFIX = "hearing_aid_eq_right_"
+    private const val KEY_HEARING_AID_EQ_LEFT_PREFIX = "hearing_aid_eq_left_"
+
     fun saveBandGain(context: Context, index: Int, value: Float) {
         prefs(context).edit().putFloat(KEY_BAND_PREFIX + index, value).apply()
     }
@@ -194,6 +200,48 @@ object SettingsStorage {
 
     fun loadPlaylistLeftEqGain(context: Context, band: Int, default: Float): Float {
         return prefs(context).getFloat(KEY_PLAYLIST_EQ_LEFT_PREFIX + band, default)
+    }
+
+    // ---- سمعک: بهره کلی، ولوم و اکولایزر مستقل هر گوش ----
+
+    fun saveHearingAidMasterGain(context: Context, value: Float) {
+        prefs(context).edit().putFloat(KEY_HEARING_AID_MASTER_GAIN, value).apply()
+    }
+
+    fun loadHearingAidMasterGain(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_HEARING_AID_MASTER_GAIN, default)
+    }
+
+    fun saveHearingAidLeftVolume(context: Context, value: Float) {
+        prefs(context).edit().putFloat(KEY_HEARING_AID_LEFT_VOLUME, value).apply()
+    }
+
+    fun loadHearingAidLeftVolume(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_HEARING_AID_LEFT_VOLUME, default)
+    }
+
+    fun saveHearingAidRightVolume(context: Context, value: Float) {
+        prefs(context).edit().putFloat(KEY_HEARING_AID_RIGHT_VOLUME, value).apply()
+    }
+
+    fun loadHearingAidRightVolume(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_HEARING_AID_RIGHT_VOLUME, default)
+    }
+
+    fun saveHearingAidRightEqGain(context: Context, band: Int, value: Float) {
+        prefs(context).edit().putFloat(KEY_HEARING_AID_EQ_RIGHT_PREFIX + band, value).apply()
+    }
+
+    fun loadHearingAidRightEqGain(context: Context, band: Int, default: Float): Float {
+        return prefs(context).getFloat(KEY_HEARING_AID_EQ_RIGHT_PREFIX + band, default)
+    }
+
+    fun saveHearingAidLeftEqGain(context: Context, band: Int, value: Float) {
+        prefs(context).edit().putFloat(KEY_HEARING_AID_EQ_LEFT_PREFIX + band, value).apply()
+    }
+
+    fun loadHearingAidLeftEqGain(context: Context, band: Int, default: Float): Float {
+        return prefs(context).getFloat(KEY_HEARING_AID_EQ_LEFT_PREFIX + band, default)
     }
 
     private fun prefs(context: Context) =

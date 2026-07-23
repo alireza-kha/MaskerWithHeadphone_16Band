@@ -330,6 +330,7 @@ class AudiogramActivity : AppCompatActivity() {
     private fun finalizeAndShow() {
         val result = buildCurrentResult()
         AudiogramStorage.saveResult(this, result)
+        AudiogramStorage.setSelectedResult(this, result.timestampMillis)
 
         binding.testSection.visibility = View.GONE
         binding.resultSection.visibility = View.VISIBLE

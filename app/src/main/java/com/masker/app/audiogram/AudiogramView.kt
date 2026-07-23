@@ -3,6 +3,7 @@ package com.masker.app.audiogram
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
@@ -73,6 +74,9 @@ class AudiogramView @JvmOverloads constructor(
         strokeWidth = 3f
         style = Paint.Style.STROKE
     }
+    // خطوط ماسک‌شده (اثر سایه) با خط‌چین رسم می‌شوند تا حتی بدون توجه به رنگ هم از خطوط
+    // اصلی بدون‌ماسک قابل تشخیص باشند
+    private val maskedDashEffect = DashPathEffect(floatArrayOf(18f, 12f), 0f)
 
     private val marginLeft = 90f
     private val marginRight = 40f
@@ -131,10 +135,10 @@ class AudiogramView @JvmOverloads constructor(
         drawReliabilityFlags(canvas, r.frequenciesHz, r.leftThresholdsDb, r.unreliableLeftFreqIndices, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom)
 
         r.rightMaskedThresholdsDb?.let {
-            drawEarLine(canvas, r.frequenciesHz, it, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, rightMaskedPaint, Symbol.TRIANGLE)
+            drawEarLine(canvas, r.frequenciesHz, it, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, rightMaskedPaint, Symbol.TRIANGLE, dashed = true)
         }
         r.leftMaskedThresholdsDb?.let {
-            drawEarLine(canvas, r.frequenciesHz, it, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, leftMaskedPaint, Symbol.SQUARE)
+            drawEarLine(canvas, r.frequenciesHz, it, minFreq, maxFreq, chartLeft, chartRight, chartTop, chartBottom, leftMaskedPaint, Symbol.SQUARE, dashed = true)
         }
     }
 
@@ -149,7 +153,8 @@ class AudiogramView @JvmOverloads constructor(
         chartTop: Float,
         chartBottom: Float,
         paint: Paint,
-        symbol: Symbol
+        symbol: Symbol,
+        dashed: Boolean = false
     ) {
         val path = Path()
         var started = false
@@ -193,7 +198,13 @@ class AudiogramView @JvmOverloads constructor(
             }
         }
 
-        canvas.drawPath(path, paint)
+        if (dashed) {
+            val dashedPaint = Paint(paint)
+            dashedPaint.pathEffect = maskedDashEffect
+            canvas.drawPath(path, dashedPaint)
+        } else {
+            canvas.drawPath(path, paint)
+        }
     }
 
     /** حلقه توخالی نارنجی دور نقاطی که با یک کوشش کنترلی ناموفق (پاسخ مثبت کاذب) همراه بودند */

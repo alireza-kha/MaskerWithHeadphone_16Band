@@ -48,7 +48,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            app:tabMode="fixed">
+            app:tabMode="scrollable">
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
@@ -69,6 +69,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/tab_playlist" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/tab_hearing_aid" />
 
         </com.google.android.material.tabs.TabLayout>
 
@@ -771,6 +776,171 @@
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:text="@string/notch_disabled_status" />
+
+        </LinearLayout>
+
+        <!-- ===================== محتوای تب «سمعک» ===================== -->
+        <LinearLayout
+            android:id="@+id/hearingAidTabContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hearing_aid_title"
+                android:textStyle="bold"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="6dp"
+                android:text="@string/hearing_aid_description"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:text="@string/hearing_aid_headphone_warning"
+                android:textSize="12sp"
+                android:textColor="#C62828"
+                android:textStyle="italic" />
+
+            <Button
+                android:id="@+id/hearingAidPlayStopButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/hearing_aid_start" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33000000"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- بهره کلی تقویت -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hearing_aid_gain_label"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/hearingAidGainValueText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp"
+                android:textSize="12sp"
+                tools:text="۱٫۵۰ برابر" />
+
+            <SeekBar
+                android:id="@+id/hearingAidGainSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="350" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33000000"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- ولوم جداگانه گوش چپ و راست -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/per_ear_title"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/left_ear" />
+            <SeekBar
+                android:id="@+id/hearingAidLeftVolumeSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/right_ear" />
+            <SeekBar
+                android:id="@+id/hearingAidRightVolumeSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33000000"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- اکولایزر مستقل هر گوش -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hearing_aid_equalizer_title"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/hearing_aid_equalizer_description"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/hearingAidEqFromAudiogramButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:text="@string/hearing_aid_eq_from_audiogram" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/right_ear"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/hearingAidEqRightContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/left_ear"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/hearingAidEqLeftContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/hearing_aid_disclaimer"
+                android:textSize="11sp"
+                android:textColor="#888888" />
 
         </LinearLayout>
 

@@ -188,6 +188,8 @@
     <string name="audiogram_result_meta_format">سن: %1$d — تاریخ: %2$s</string>
     <string name="unnamed_patient">بدون نام</string>
     <string name="delete_audiogram_confirm">این آزمون برای همیشه از سوابق حذف شود؟</string>
+    <string name="select_as_active_audiogram">انتخاب به‌عنوان مبنای تنظیمات برنامه</string>
+    <string name="this_is_active_audiogram">✓ این آزمون هم‌اکنون مبنای فراخوانی تنظیمات در سراسر برنامه است</string>
 
     <!-- ==================== تب «پلی‌لیست» ==================== -->
     <string name="tab_playlist">پلی‌لیست</string>
@@ -210,4 +212,22 @@
     <string name="playlist_notch_description">دقیقاً مثل بخش «حذف فرکانس وزوز» در تب ماسکر نویزی: فرکانس وزوز گوش خود را وارد کنید تا همان باند از موسیقی در حال پخش هم حذف شود.</string>
     <string name="notification_playlist_channel_name">پخش پلی‌لیست موسیقی</string>
     <string name="notification_playlist_text">برای مدیریت پخش، اعلان را باز کنید</string>
+
+    <!-- ==================== تب «سمعک» ==================== -->
+    <string name="tab_hearing_aid">سمعک</string>
+    <string name="hearing_aid_title">شبیه‌ساز سمعک پیشرفته</string>
+    <string name="hearing_aid_description">صدای اطراف را از میکروفون گوشی دریافت، بر اساس نتیجه اودیوگرام شما در هر گوش جداگانه تقویت و پخش می‌کند؛ می‌توانید هم‌زمان با ماسکر نویزی یا تونال هم استفاده کنید.</string>
+    <string name="hearing_aid_headphone_warning">⚠ برای جلوگیری از زوزه بازخورد، حتماً از هدفون استفاده کنید و از اسپیکر گوشی استفاده نکنید.</string>
+    <string name="hearing_aid_start">روشن کردن سمعک</string>
+    <string name="hearing_aid_stop">خاموش کردن سمعک</string>
+    <string name="hearing_aid_permission_denied">برای استفاده از سمعک، برنامه به مجوز دسترسی به میکروفون نیاز دارد</string>
+    <string name="hearing_aid_gain_label">بهره کلی تقویت صدا</string>
+    <string name="hearing_aid_gain_format">%1$.2f برابر</string>
+    <string name="hearing_aid_equalizer_title">اکولایزر مستقل هر گوش</string>
+    <string name="hearing_aid_equalizer_description">شدت هر باند فرکانسی صدای ورودی میکروفون را برای هر گوش جداگانه کم یا زیاد کنید؛ تغییرات بلافاصله حین کارکرد سمعک اعمال می‌شوند.</string>
+    <string name="hearing_aid_eq_from_audiogram">تنظیم خودکار اکولایزر هر گوش از اودیوگرام</string>
+    <string name="hearing_aid_eq_applied_toast">اکولایزر سمعک بر اساس آزمون اودیوگرام انتخاب‌شده تنظیم شد؛ فرکانس‌هایی که کمتر می‌شنوید با قدرت بیشتری تقویت می‌شوند</string>
+    <string name="hearing_aid_disclaimer">این ویژگی یک شبیه‌سازی نرم‌افزاری است و جایگزین سمعک پزشکی تجویزشده توسط شنوایی‌شناس نیست.</string>
+    <string name="notification_hearing_aid_channel_name">شبیه‌ساز سمعک</string>
+    <string name="notification_hearing_aid_text">سمعک در حال کار است؛ برای مدیریت، اعلان را باز کنید</string>
 </resources>

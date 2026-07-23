@@ -31,6 +31,8 @@ import com.masker.app.audiogram.AudiogramStorage
 import com.masker.app.databinding.ActivityMainBinding
 import com.masker.app.databinding.ItemBandSliderBinding
 import com.masker.app.databinding.ItemEqBandSliderBinding
+import com.masker.app.hearingaid.HearingAidEngine
+import com.masker.app.hearingaid.HearingAidService
 import com.masker.app.playlist.PlaylistAdapter
 import com.masker.app.playlist.PlaylistPlaybackService
 import com.masker.app.playlist.PlaylistPlayerEngine
@@ -106,6 +108,19 @@ class MainActivity : AppCompatActivity() {
             if (uris.isNotEmpty()) importPlaylistFiles(uris)
         }
 
+    // ------- تب «سمعک» -------
+    private val hearingAidEqRightRowBindings = mutableListOf<ItemEqBandSliderBinding>()
+    private val hearingAidEqLeftRowBindings = mutableListOf<ItemEqBandSliderBinding>()
+
+    private val requestMicPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                startHearingAid()
+            } else {
+                MessageDialog.show(this, R.string.hearing_aid_permission_denied)
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -122,6 +137,7 @@ class MainActivity : AppCompatActivity() {
         setupButtons()
         setupTabs()
         setupPlaylistTab()
+        setupHearingAidTab()
         updateLastAudiogramSummary()
         requestNotificationPermissionIfNeeded()
         requestStoragePermissionIfNeeded()
@@ -147,6 +163,7 @@ class MainActivity : AppCompatActivity() {
                 binding.tonalTabContent.visibility = if (tab.position == 1) android.view.View.VISIBLE else android.view.View.GONE
                 binding.audiogramTabContent.visibility = if (tab.position == 2) android.view.View.VISIBLE else android.view.View.GONE
                 binding.playlistTabContent.visibility = if (tab.position == 3) android.view.View.VISIBLE else android.view.View.GONE
+                binding.hearingAidTabContent.visibility = if (tab.position == 4) android.view.View.VISIBLE else android.view.View.GONE
             }
             override fun onTabUnselected(tab: TabLayout.Tab) {}
             override fun onTabReselected(tab: TabLayout.Tab) {}
@@ -191,6 +208,16 @@ class MainActivity : AppCompatActivity() {
             val leftGain = SettingsStorage.loadPlaylistLeftEqGain(this, band, 0f)
             PlaylistPlaybackService.engine.setRightEqBandGain(band, rightGain)
             PlaylistPlaybackService.engine.setLeftEqBandGain(band, leftGain)
+        }
+
+        HearingAidService.engine.masterGain = SettingsStorage.loadHearingAidMasterGain(this, 1.5f)
+        HearingAidService.engine.leftVolume = SettingsStorage.loadHearingAidLeftVolume(this, 1.0f)
+        HearingAidService.engine.rightVolume = SettingsStorage.loadHearingAidRightVolume(this, 1.0f)
+        for (band in 0 until HearingAidEngine.EQ_BAND_COUNT) {
+            val rightGain = SettingsStorage.loadHearingAidRightEqGain(this, band, 0f)
+            val leftGain = SettingsStorage.loadHearingAidLeftEqGain(this, band, 0f)
+            HearingAidService.engine.setRightEqBandGain(band, rightGain)
+            HearingAidService.engine.setLeftEqBandGain(band, leftGain)
         }
     }
 
@@ -353,7 +380,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.notchFromAudiogramButton.setOnClickListener {
-            val result = AudiogramStorage.loadLastResult(this)
+            val result = AudiogramStorage.loadSelectedResult(this)
             val suggestedFreq = result?.let { findSuggestedNotchFrequency(it) }
             if (suggestedFreq == null) {
                 MessageDialog.show(this, R.string.notch_no_audiogram)
@@ -402,7 +429,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun setupOptimizeButton() {
         binding.optimizeFromAudiogramButton.setOnClickListener {
-            val result = AudiogramStorage.loadLastResult(this)
+            val result = AudiogramStorage.loadSelectedResult(this)
             if (result == null) {
                 MessageDialog.show(this, R.string.optimize_no_audiogram)
                 return@setOnClickListener
@@ -871,9 +898,10 @@ class MainActivity : AppCompatActivity() {
         rowBinding: ItemEqBandSliderBinding,
         band: Int,
         initialGainDb: Float,
+        bandFrequenciesHz: DoubleArray = PlaylistPlayerEngine.EQ_BAND_FREQUENCIES,
         onChanged: (Float) -> Unit
     ) {
-        rowBinding.eqBandLabel.text = formatFrequencyLabel(PlaylistPlayerEngine.EQ_BAND_FREQUENCIES[band])
+        rowBinding.eqBandLabel.text = formatFrequencyLabel(bandFrequenciesHz[band])
         rowBinding.eqBandSeekBar.progress = (initialGainDb + 15).toInt()
         rowBinding.eqBandValueText.text = getString(R.string.playlist_eq_gain_format, initialGainDb.toInt())
 
@@ -895,7 +923,7 @@ class MainActivity : AppCompatActivity() {
      * فقط تقویت مثبت اعمال می‌شود، نه کاهش فرکانس‌های شنوایی خوب.
      */
     private fun applyPlaylistEqFromAudiogram() {
-        val result = AudiogramStorage.loadLastResult(this)
+        val result = AudiogramStorage.loadSelectedResult(this)
         if (result == null) {
             MessageDialog.show(this, R.string.optimize_no_audiogram)
             return
@@ -976,7 +1004,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.playlistNotchFromAudiogramButton.setOnClickListener {
-            val result = AudiogramStorage.loadLastResult(this)
+            val result = AudiogramStorage.loadSelectedResult(this)
             val suggestedFreq = result?.let { findSuggestedNotchFrequency(it) }
             if (suggestedFreq == null) {
                 MessageDialog.show(this, R.string.notch_no_audiogram)
@@ -1130,5 +1158,158 @@ class MainActivity : AppCompatActivity() {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return String.format(Locale.US, "%02d:%02d", minutes, seconds)
+    }
+
+    // ==================== تب «سمعک» ====================
+
+    private fun setupHearingAidTab() {
+        updateHearingAidPlayButtonLabel()
+
+        binding.hearingAidPlayStopButton.setOnClickListener {
+            if (HearingAidService.engine.isRunning) {
+                stopHearingAid()
+            } else {
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+                if (hasPermission) {
+                    startHearingAid()
+                } else {
+                    requestMicPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }
+        }
+
+        val engine = HearingAidService.engine
+
+        binding.hearingAidGainSeekBar.progress = ((engine.masterGain - HearingAidEngine.MIN_MASTER_GAIN) * 100).toInt()
+        updateHearingAidGainLabel(engine.masterGain)
+        binding.hearingAidGainSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                val newGain = HearingAidEngine.MIN_MASTER_GAIN + (progress / 100f)
+                HearingAidService.engine.masterGain = newGain
+                SettingsStorage.saveHearingAidMasterGain(this@MainActivity, newGain)
+                updateHearingAidGainLabel(newGain)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.hearingAidLeftVolumeSeekBar.progress = (engine.leftVolume * 100).toInt()
+        binding.hearingAidLeftVolumeSeekBar.setOnSeekBarChangeListener(simpleListener { value ->
+            HearingAidService.engine.leftVolume = value
+            SettingsStorage.saveHearingAidLeftVolume(this, value)
+        })
+
+        binding.hearingAidRightVolumeSeekBar.progress = (engine.rightVolume * 100).toInt()
+        binding.hearingAidRightVolumeSeekBar.setOnSeekBarChangeListener(simpleListener { value ->
+            HearingAidService.engine.rightVolume = value
+            SettingsStorage.saveHearingAidRightVolume(this, value)
+        })
+
+        setupHearingAidEqualizer()
+    }
+
+    private fun startHearingAid() {
+        val intent = Intent(this, HearingAidService::class.java).apply {
+            action = HearingAidService.ACTION_START
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        updateHearingAidPlayButtonLabel()
+    }
+
+    private fun stopHearingAid() {
+        val intent = Intent(this, HearingAidService::class.java).apply {
+            action = HearingAidService.ACTION_STOP
+        }
+        startService(intent)
+        updateHearingAidPlayButtonLabel()
+    }
+
+    private fun updateHearingAidPlayButtonLabel() {
+        binding.hearingAidPlayStopButton.text = getString(
+            if (HearingAidService.engine.isRunning) R.string.hearing_aid_stop else R.string.hearing_aid_start
+        )
+    }
+
+    private fun updateHearingAidGainLabel(gain: Float) {
+        binding.hearingAidGainValueText.text = getString(R.string.hearing_aid_gain_format, gain)
+    }
+
+    private fun setupHearingAidEqualizer() {
+        val inflater = LayoutInflater.from(this)
+        val engine = HearingAidService.engine
+
+        for (band in 0 until HearingAidEngine.EQ_BAND_COUNT) {
+            val rowBinding = ItemEqBandSliderBinding.inflate(inflater, binding.hearingAidEqRightContainer, false)
+            bindPlaylistEqRow(rowBinding, band, engine.rightEqBandGainsDb[band], HearingAidEngine.EQ_BAND_FREQUENCIES) { newGain ->
+                HearingAidService.engine.setRightEqBandGain(band, newGain)
+                SettingsStorage.saveHearingAidRightEqGain(this, band, newGain)
+            }
+            binding.hearingAidEqRightContainer.addView(rowBinding.root)
+            hearingAidEqRightRowBindings.add(rowBinding)
+        }
+
+        for (band in 0 until HearingAidEngine.EQ_BAND_COUNT) {
+            val rowBinding = ItemEqBandSliderBinding.inflate(inflater, binding.hearingAidEqLeftContainer, false)
+            bindPlaylistEqRow(rowBinding, band, engine.leftEqBandGainsDb[band], HearingAidEngine.EQ_BAND_FREQUENCIES) { newGain ->
+                HearingAidService.engine.setLeftEqBandGain(band, newGain)
+                SettingsStorage.saveHearingAidLeftEqGain(this, band, newGain)
+            }
+            binding.hearingAidEqLeftContainer.addView(rowBinding.root)
+            hearingAidEqLeftRowBindings.add(rowBinding)
+        }
+
+        binding.hearingAidEqFromAudiogramButton.setOnClickListener { applyHearingAidEqFromAudiogram() }
+    }
+
+    /**
+     * تنظیم خودکار اکولایزر سمعک برای هر گوش بر اساس سابقه اودیوگرام انتخاب‌شده (یا آخرین
+     * آزمون در صورت نبود انتخاب): فرکانس‌هایی که افت شنوایی بیشتری دارند، تقویت بیشتری می‌گیرند.
+     */
+    private fun applyHearingAidEqFromAudiogram() {
+        val result = AudiogramStorage.loadSelectedResult(this)
+        if (result == null) {
+            MessageDialog.show(this, R.string.optimize_no_audiogram)
+            return
+        }
+
+        val rightGains = AudiogramNoiseShaper.computeEarEqBoostDb(
+            result.rightThresholdsDb, result.frequenciesHz, HearingAidEngine.EQ_BAND_FREQUENCIES
+        )
+        val leftGains = AudiogramNoiseShaper.computeEarEqBoostDb(
+            result.leftThresholdsDb, result.frequenciesHz, HearingAidEngine.EQ_BAND_FREQUENCIES
+        )
+
+        for (band in rightGains.indices) {
+            HearingAidService.engine.setRightEqBandGain(band, rightGains[band])
+            SettingsStorage.saveHearingAidRightEqGain(this, band, rightGains[band])
+        }
+        for (band in leftGains.indices) {
+            HearingAidService.engine.setLeftEqBandGain(band, leftGains[band])
+            SettingsStorage.saveHearingAidLeftEqGain(this, band, leftGains[band])
+        }
+
+        refreshHearingAidEqualizerUI()
+        MessageDialog.show(this, R.string.hearing_aid_eq_applied_toast)
+    }
+
+    private fun refreshHearingAidEqualizerUI() {
+        val engine = HearingAidService.engine
+        for (band in hearingAidEqRightRowBindings.indices) {
+            val gainDb = engine.rightEqBandGainsDb.getOrNull(band) ?: continue
+            hearingAidEqRightRowBindings[band].eqBandSeekBar.progress = (gainDb + 15).toInt()
+            hearingAidEqRightRowBindings[band].eqBandValueText.text = getString(R.string.playlist_eq_gain_format, gainDb.toInt())
+        }
+        for (band in hearingAidEqLeftRowBindings.indices) {
+            val gainDb = engine.leftEqBandGainsDb.getOrNull(band) ?: continue
+            hearingAidEqLeftRowBindings[band].eqBandSeekBar.progress = (gainDb + 15).toInt()
+            hearingAidEqLeftRowBindings[band].eqBandValueText.text = getString(R.string.playlist_eq_gain_format, gainDb.toInt())
+        }
     }
 }

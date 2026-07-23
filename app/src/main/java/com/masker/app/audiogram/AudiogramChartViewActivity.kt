@@ -37,6 +37,7 @@ class AudiogramChartViewActivity : AppCompatActivity() {
         binding.audiogramView.setResult(loaded)
         updatePatientInfoText(loaded)
         updateLegendText(loaded)
+        updateActiveStatus(loaded)
 
         binding.saveAudiogramButton.setOnClickListener {
             AudiogramImageExporter.saveAndMaybeShare(this, binding.resultCaptureContainer, share = false)
@@ -45,6 +46,17 @@ class AudiogramChartViewActivity : AppCompatActivity() {
             AudiogramImageExporter.saveAndMaybeShare(this, binding.resultCaptureContainer, share = true)
         }
         binding.deleteAudiogramButton.setOnClickListener { confirmDelete() }
+        binding.selectAsActiveButton.setOnClickListener {
+            AudiogramStorage.setSelectedResult(this, loaded.timestampMillis)
+            updateActiveStatus(loaded)
+        }
+    }
+
+    private fun updateActiveStatus(result: AudiogramResult) {
+        val selected = AudiogramStorage.loadSelectedResult(this)
+        val isActive = selected?.timestampMillis == result.timestampMillis
+        binding.activeStatusText.visibility = if (isActive) android.view.View.VISIBLE else android.view.View.GONE
+        binding.selectAsActiveButton.isEnabled = !isActive
     }
 
     private fun confirmDelete() {

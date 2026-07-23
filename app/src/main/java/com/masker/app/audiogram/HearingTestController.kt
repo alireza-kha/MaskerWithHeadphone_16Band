@@ -2,7 +2,7 @@ package com.masker.app.audiogram
 
 /**
  * موتور منطقی آزمون شنوایی؛ برای هر بلوک (یک گوش + یک فرکانس مشخص) از روش استاندارد
- * «هیوز-وستلیک» (Hughson-Westlake) استفاده می‌کند (کاهش ۱۰ واحدی پس از شنیدن، افزایش ۵
+ * «هیوز-وستلیک» (Hughson-Westlake) استفاده می‌کند (کاهش ۱۰ واحدی پس از شنیدن، افزایش ۴
  * واحدی پس از نشنیدن، و تأیید آستانه با حداقل دو پاسخ مثبت هم‌سطح در مسیر صعودی).
  *
  * فهرست [blocks] دقیقاً همان (گوش، فرکانس) هایی است که باید آزموده شوند — می‌تواند همه
@@ -36,6 +36,7 @@ class HearingTestController(
         private const val MIN_ATTENUATION = 0f       // بلندترین حالت ممکن
         private const val MAX_ATTENUATION = 80f      // آرام‌ترین سطح قابل آزمایش
         private const val MAX_TRIALS_PER_FREQUENCY = 12
+        private const val THRESHOLD_STEP_DB = 4f      // گام صعودی پیدا کردن آستانه (بنا به درخواست کاربر: ۴ دسی‌بل)
     }
 
     private sealed class TestBlock {
@@ -126,7 +127,7 @@ class HearingTestController(
                 }
             } else {
                 phase = Phase.AFTER_NOT_HEARD
-                currentLevel = (currentLevel - 5f).coerceAtLeast(MIN_ATTENUATION)
+                currentLevel = (currentLevel - THRESHOLD_STEP_DB).coerceAtLeast(MIN_ATTENUATION)
             }
         } else { // AFTER_NOT_HEARD
             if (heard) {
@@ -145,7 +146,7 @@ class HearingTestController(
                     finalizeThreshold(Float.NaN)
                     return
                 }
-                currentLevel = (currentLevel - 5f).coerceAtLeast(MIN_ATTENUATION)
+                currentLevel = (currentLevel - THRESHOLD_STEP_DB).coerceAtLeast(MIN_ATTENUATION)
             }
         }
 

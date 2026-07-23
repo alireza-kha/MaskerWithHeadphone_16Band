@@ -80,6 +80,24 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/selectAsActiveButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/select_as_active_audiogram" />
+
+        <TextView
+            android:id="@+id/activeStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:textSize="12sp"
+            android:textColor="#2E7D32"
+            android:visibility="gone"
+            android:text="@string/this_is_active_audiogram" />
+
+        <Button
             android:id="@+id/deleteAudiogramButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
