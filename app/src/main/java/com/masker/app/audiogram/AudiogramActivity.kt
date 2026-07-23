@@ -1,8 +1,11 @@
 package com.masker.app.audiogram
 
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Bundle
 import android.view.View
+import android.widget.Button
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.masker.app.R
@@ -87,9 +90,7 @@ class AudiogramActivity : AppCompatActivity() {
         binding = ActivityAudiogramBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.playCalibrationToneButton.setOnClickListener {
-            HearingTestTonePlayer.playBrief(this, Ear.BOTH, 1000.0, attenuationDb = 20f, durationMs = 2500) {}
-        }
+        binding.playCalibrationToneButton.setOnClickListener { startVolumeCalibration() }
 
         binding.startTestButton.setOnClickListener { startTest() }
         binding.viewHistoryButton.setOnClickListener {
@@ -119,6 +120,67 @@ class AudiogramActivity : AppCompatActivity() {
                 MessageDialog.show(this, getString(R.string.history_loaded_toast, stored.patientName))
             }
         }
+    }
+
+    // ==================== تنظیم خودکار ولوم پیش از آزمون ====================
+
+    /**
+     * پیش از شروع آزمون، ولوم رسانه گوشی را روی یک سطح آغازین معقول (نه خیلی آرام، نه خیلی
+     * بلند) تنظیم می‌کند، یک تن آزمایشی پیوسته پخش می‌کند، و با دو دکمه «آرام‌تر»/«بلندتر» به
+     * کاربر اجازه می‌دهد ولوم را به سطح راحت و واضح برساند. همین ولوم گوشی (نه شدت داخلی تن)
+     * تا پایان همان جلسه آزمون ثابت می‌ماند تا آستانه‌های اندازه‌گیری‌شده نسبت به یک مبنای
+     * ثابت و معنادار باشند — دقیقاً مثل تنظیم سطح مرجع در دستگاه‌های اودیومتری واقعی، پیش از
+     * اندازه‌گیری آستانه‌ها با کاهش تدریجی شدت.
+     */
+    private fun startVolumeCalibration() {
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+        if (audioManager == null) {
+            startTest()
+            return
+        }
+
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        if (maxVolume <= 0) {
+            startTest()
+            return
+        }
+        val startVolume = (maxVolume * 0.4f).toInt().coerceIn(1, maxVolume)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, startVolume, 0)
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_volume_calibration, null)
+        val levelText = dialogView.findViewById<TextView>(R.id.calibrationLevelText)
+
+        fun refreshLevelText() {
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val percent = if (maxVolume > 0) current * 100 / maxVolume else 0
+            levelText.text = getString(R.string.volume_calibration_level_format, percent)
+        }
+        refreshLevelText()
+
+        HearingTestTonePlayer.start(this, Ear.BOTH, 1000.0, attenuationDb = 20f)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.volume_calibration_title)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        dialogView.findViewById<Button>(R.id.calibrationQuieterButton).setOnClickListener {
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (current - 1).coerceAtLeast(0), 0)
+            refreshLevelText()
+        }
+        dialogView.findViewById<Button>(R.id.calibrationLouderButton).setOnClickListener {
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (current + 1).coerceAtMost(maxVolume), 0)
+            refreshLevelText()
+        }
+        dialogView.findViewById<Button>(R.id.calibrationDoneButton).setOnClickListener {
+            dialog.dismiss()
+            startTest()
+        }
+        dialog.setOnDismissListener { HearingTestTonePlayer.stop() }
+        dialog.show()
     }
 
     // ==================== شروع و اجرای آزمون ====================

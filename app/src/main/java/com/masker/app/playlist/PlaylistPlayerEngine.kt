@@ -9,6 +9,7 @@ import android.media.AudioTrack
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.PlaybackParams
 import android.os.Build
 import android.util.Log
 import com.masker.app.audio.BiquadPeakingEq
@@ -36,8 +37,15 @@ class PlaylistPlayerEngine {
         val EQ_BAND_FREQUENCIES = doubleArrayOf(60.0, 150.0, 400.0, 1000.0, 2400.0, 6000.0, 15000.0)
     }
 
-    /** شدت (dB، از ۱۵- تا ۱۵+) هر یک از ۷ باند اکولایزر گرافیکی */
-    val eqBandGainsDb = FloatArray(EQ_BAND_COUNT) { 0f }
+    /** شدت (dB، از ۱۵- تا ۱۵+) هر یک از ۷ باند اکولایزر گرافیکی، جداگانه برای هر گوش */
+    val leftEqBandGainsDb = FloatArray(EQ_BAND_COUNT) { 0f }
+    val rightEqBandGainsDb = FloatArray(EQ_BAND_COUNT) { 0f }
+
+    /** ولوم جداگانه هر گوش (۰ تا ۱)، دقیقاً مثل تب ماسکر نویزی */
+    @Volatile
+    var leftVolume: Float = 1.0f
+    @Volatile
+    var rightVolume: Float = 1.0f
 
     var notchEnabled = false
         private set
@@ -163,12 +171,18 @@ class PlaylistPlayerEngine {
         play(context, file, positionMs)
     }
 
-    fun setEqBandGain(band: Int, gainDb: Float) {
+    /** اکولایزر کانال چپ (کانال ۰ در PCM استریو؛ برای فایل مونو هم همین کانال استفاده می‌شود) */
+    fun setLeftEqBandGain(band: Int, gainDb: Float) {
         if (band !in 0 until EQ_BAND_COUNT) return
-        eqBandGainsDb[band] = gainDb
-        eqFilters?.let { filters ->
-            for (ch in filters.indices) filters[ch][band].setGain(gainDb)
-        }
+        leftEqBandGainsDb[band] = gainDb
+        eqFilters?.getOrNull(0)?.get(band)?.setGain(gainDb)
+    }
+
+    /** اکولایزر کانال راست (کانال ۱ در PCM استریو؛ در فایل مونو بدون اثر است) */
+    fun setRightEqBandGain(band: Int, gainDb: Float) {
+        if (band !in 0 until EQ_BAND_COUNT) return
+        rightEqBandGainsDb[band] = gainDb
+        eqFilters?.getOrNull(1)?.get(band)?.setGain(gainDb)
     }
 
     /** فعال/غیرفعال کردن و تنظیم فیلتر Notch؛ در صورت تغییر حین پخش، بلافاصله اعمال می‌شود */
@@ -194,11 +208,22 @@ class PlaylistPlayerEngine {
         audioTrack = null
     }
 
+    /**
+     * برای سرعت‌های بیشتر از ۱ برابر، ساخت یک [PlaybackParams] کاملاً تازه (به‌جای خواندن و
+     * تغییر مقدار فعلی track.playbackParams که گاهی مقدار pitch نامعتبر/قدیمی داشت و باعث رد
+     * شدن بی‌صدای درخواست سرعت‌های بالا می‌شد) و تنظیم صریح pitch=1 (ثابت نگه‌داشتن زیروبمی
+     * صدا صرف‌نظر از سرعت) لازم بود.
+     */
     private fun applyPlaybackParams(track: AudioTrack) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
-                track.playbackParams = track.playbackParams.setSpeed(speed)
-            } catch (_: Exception) {
+                val params = PlaybackParams()
+                    .setSpeed(speed)
+                    .setPitch(1.0f)
+                    .setAudioFallbackMode(PlaybackParams.AUDIO_FALLBACK_MODE_DEFAULT)
+                track.playbackParams = params
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to apply playback speed=$speed", e)
             }
         }
     }
@@ -242,7 +267,9 @@ class PlaylistPlayerEngine {
             activeSampleRate = sampleRate
             activeChannelCount = channelCount
             eqFilters = Array(channelCount) { ch ->
-                Array(EQ_BAND_COUNT) { band -> BiquadPeakingEq(sampleRate, EQ_BAND_FREQUENCIES[band], eqBandGainsDb[band]) }
+                // کانال ۰ = چپ، کانال ۱ = راست (قرارداد استاندارد PCM استریو)؛ فایل مونو فقط کانال ۰ دارد
+                val gains = if (ch == 1) rightEqBandGainsDb else leftEqBandGainsDb
+                Array(EQ_BAND_COUNT) { band -> BiquadPeakingEq(sampleRate, EQ_BAND_FREQUENCIES[band], gains[band]) }
             }
             notchFilterInstances = if (notchEnabled) {
                 Array(channelCount) { NotchFilter(sampleRate, notchFrequencyHz, notchWidthOctaves) }
@@ -261,8 +288,8 @@ class PlaylistPlayerEngine {
             }
             track = newTrack
             audioTrack = newTrack
-            applyPlaybackParams(newTrack)
             newTrack.play()
+            applyPlaybackParams(newTrack)
 
             val bufferInfo = MediaCodec.BufferInfo()
             var inputDone = false
@@ -344,7 +371,9 @@ class PlaylistPlayerEngine {
         val channelMask = if (channelCount == 1) AudioFormat.CHANNEL_OUT_MONO else AudioFormat.CHANNEL_OUT_STEREO
         val minBuf = AudioTrack.getMinBufferSize(sampleRate, channelMask, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) return null
-        val bufferSize = max(minBuf, 4096)
+        // بافر بزرگ‌تر از حداقل، چون در سرعت‌های پخش بیشتر از ۱ برابر، مصرف بافر توسط سخت‌افزار
+        // سریع‌تر از حالت عادی است و بافر به‌اندازه حداقل می‌تواند باعث قطعی/عدم اعمال سرعت شود
+        val bufferSize = max(minBuf, 4096) * 3
         return try {
             AudioTrack.Builder()
                 .setAudioAttributes(
@@ -388,6 +417,8 @@ class PlaylistPlayerEngine {
                     value = chFilters[band].process(value)
                 }
                 notch?.let { value = it.getOrNull(ch)?.process(value) ?: value }
+                val channelVolume = if (ch == 1) rightVolume else leftVolume
+                value *= channelVolume
                 value = value.coerceIn(-1.0, 1.0)
                 buffer.putShort(idx, (value * Short.MAX_VALUE).toInt().toShort())
             }

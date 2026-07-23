@@ -30,6 +30,11 @@ object SettingsStorage {
     private const val KEY_PLAYLIST_NOTCH_FREQUENCY = "playlist_notch_frequency"
     private const val KEY_PLAYLIST_NOTCH_WIDTH = "playlist_notch_width"
 
+    private const val KEY_PLAYLIST_LEFT_VOLUME = "playlist_left_volume"
+    private const val KEY_PLAYLIST_RIGHT_VOLUME = "playlist_right_volume"
+    private const val KEY_PLAYLIST_EQ_RIGHT_PREFIX = "playlist_eq_right_"
+    private const val KEY_PLAYLIST_EQ_LEFT_PREFIX = "playlist_eq_left_"
+
     fun saveBandGain(context: Context, index: Int, value: Float) {
         prefs(context).edit().putFloat(KEY_BAND_PREFIX + index, value).apply()
     }
@@ -155,6 +160,40 @@ object SettingsStorage {
 
     fun loadPlaylistNotchWidth(context: Context, default: Float): Float {
         return prefs(context).getFloat(KEY_PLAYLIST_NOTCH_WIDTH, default)
+    }
+
+    // ---- ولوم و اکولایزر مستقل هر گوش در پلی‌لیست ----
+
+    fun savePlaylistLeftVolume(context: Context, value: Float) {
+        prefs(context).edit().putFloat(KEY_PLAYLIST_LEFT_VOLUME, value).apply()
+    }
+
+    fun loadPlaylistLeftVolume(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_PLAYLIST_LEFT_VOLUME, default)
+    }
+
+    fun savePlaylistRightVolume(context: Context, value: Float) {
+        prefs(context).edit().putFloat(KEY_PLAYLIST_RIGHT_VOLUME, value).apply()
+    }
+
+    fun loadPlaylistRightVolume(context: Context, default: Float): Float {
+        return prefs(context).getFloat(KEY_PLAYLIST_RIGHT_VOLUME, default)
+    }
+
+    fun savePlaylistRightEqGain(context: Context, band: Int, value: Float) {
+        prefs(context).edit().putFloat(KEY_PLAYLIST_EQ_RIGHT_PREFIX + band, value).apply()
+    }
+
+    fun loadPlaylistRightEqGain(context: Context, band: Int, default: Float): Float {
+        return prefs(context).getFloat(KEY_PLAYLIST_EQ_RIGHT_PREFIX + band, default)
+    }
+
+    fun savePlaylistLeftEqGain(context: Context, band: Int, value: Float) {
+        prefs(context).edit().putFloat(KEY_PLAYLIST_EQ_LEFT_PREFIX + band, value).apply()
+    }
+
+    fun loadPlaylistLeftEqGain(context: Context, band: Int, default: Float): Float {
+        return prefs(context).getFloat(KEY_PLAYLIST_EQ_LEFT_PREFIX + band, default)
     }
 
     private fun prefs(context: Context) =

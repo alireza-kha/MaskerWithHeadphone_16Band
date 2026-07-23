@@ -36,6 +36,29 @@ object AudiogramNoiseShaper {
         }
     }
 
+    /**
+     * مشابه [computeBandGains]، ولی برای یک گوش مشخص (نه میانگین دو گوش) و روی مقیاس اکولایزر
+     * گرافیکی (دسی‌بل تقویت، نه شدت نویز): فرکانس‌هایی که در آن گوش افت شنوایی بیشتری دارند
+     * (آستانه پایین‌تر)، با شدت بیشتری تقویت می‌شوند. فقط تقویت مثبت اعمال می‌شود (بدون کاهش
+     * فرکانس‌های شنوایی خوب) — برای اکولایزر مستقل هر گوش در تب پلی‌لیست استفاده می‌شود.
+     */
+    fun computeEarEqBoostDb(
+        earThresholdsDb: FloatArray,
+        measuredFreqs: List<Double>,
+        bandFrequencies: DoubleArray,
+        maxBoostDb: Float = 15f
+    ): FloatArray {
+        return FloatArray(bandFrequencies.size) { i ->
+            val threshold = interpolateThreshold(bandFrequencies[i], measuredFreqs, earThresholdsDb)
+            if (threshold.isNaN()) {
+                0f
+            } else {
+                val badness = ((MAX_ATTENUATION - threshold) / MAX_ATTENUATION).coerceIn(0f, 1f)
+                maxBoostDb * badness
+            }
+        }
+    }
+
     /** آستانه پایین‌تر (نیاز به صدای بلندتر = افت شنوایی بیشتر) → شدت ماسکینگ بیشتر */
     private fun thresholdToGain(thresholdDb: Float): Float {
         if (thresholdDb.isNaN()) return 0.6f // مقدار پیش‌فرض در نبود داده برای آن فرکانس

@@ -588,6 +588,41 @@
                 android:layout_marginTop="12dp"
                 android:layout_marginBottom="12dp" />
 
+            <!-- ولوم جداگانه گوش چپ و راست -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/per_ear_title"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/left_ear" />
+            <SeekBar
+                android:id="@+id/playlistLeftVolumeSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/right_ear" />
+            <SeekBar
+                android:id="@+id/playlistRightVolumeSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33000000"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp" />
+
             <!-- سرعت پخش -->
             <TextView
                 android:layout_width="wrap_content"
@@ -616,7 +651,7 @@
                 android:layout_marginTop="12dp"
                 android:layout_marginBottom="12dp" />
 
-            <!-- اکولایزر -->
+            <!-- اکولایزر مستقل هر گوش -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -631,8 +666,34 @@
                 android:text="@string/playlist_equalizer_description"
                 android:textSize="12sp" />
 
+            <Button
+                android:id="@+id/playlistEqFromAudiogramButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:text="@string/playlist_eq_from_audiogram" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/right_ear"
+                android:textStyle="bold" />
+
             <LinearLayout
-                android:id="@+id/playlistEqContainer"
+                android:id="@+id/playlistEqRightContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/left_ear"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/playlistEqLeftContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />

@@ -86,7 +86,8 @@ class MainActivity : AppCompatActivity() {
 
     // ------- تب «پلی‌لیست» -------
     private lateinit var playlistAdapter: PlaylistAdapter
-    private val eqRowBindings = mutableListOf<ItemEqBandSliderBinding>()
+    private val eqRightRowBindings = mutableListOf<ItemEqBandSliderBinding>()
+    private val eqLeftRowBindings = mutableListOf<ItemEqBandSliderBinding>()
     private var playlistNotchEnabled = false
     private var playlistNotchFrequencyHz = 4000.0
     private var playlistNotchWidthOctaves = 0.5f
@@ -182,6 +183,15 @@ class MainActivity : AppCompatActivity() {
         playlistNotchFrequencyHz = SettingsStorage.loadPlaylistNotchFrequency(this, 4000.0)
         playlistNotchWidthOctaves = SettingsStorage.loadPlaylistNotchWidth(this, 0.5f)
         PlaylistPlaybackService.engine.setNotch(playlistNotchEnabled, playlistNotchFrequencyHz, playlistNotchWidthOctaves)
+
+        PlaylistPlaybackService.engine.leftVolume = SettingsStorage.loadPlaylistLeftVolume(this, 1.0f)
+        PlaylistPlaybackService.engine.rightVolume = SettingsStorage.loadPlaylistRightVolume(this, 1.0f)
+        for (band in 0 until PlaylistPlayerEngine.EQ_BAND_COUNT) {
+            val rightGain = SettingsStorage.loadPlaylistRightEqGain(this, band, 0f)
+            val leftGain = SettingsStorage.loadPlaylistLeftEqGain(this, band, 0f)
+            PlaylistPlaybackService.engine.setRightEqBandGain(band, rightGain)
+            PlaylistPlaybackService.engine.setLeftEqBandGain(band, leftGain)
+        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -786,10 +796,28 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        setupPlaylistVolumeControls()
         setupPlaylistSpeedControl()
         setupPlaylistEqualizer()
         setupPlaylistNotchControls()
         refreshPlaylistUI()
+    }
+
+    /** ولوم جداگانه گوش چپ و راست برای پلی‌لیست، دقیقاً مثل تب ماسکر نویزی */
+    private fun setupPlaylistVolumeControls() {
+        val engine = PlaylistPlaybackService.engine
+
+        binding.playlistLeftVolumeSeekBar.progress = (engine.leftVolume * 100).toInt()
+        binding.playlistLeftVolumeSeekBar.setOnSeekBarChangeListener(simpleListener { value ->
+            PlaylistPlaybackService.engine.leftVolume = value
+            SettingsStorage.savePlaylistLeftVolume(this, value)
+        })
+
+        binding.playlistRightVolumeSeekBar.progress = (engine.rightVolume * 100).toInt()
+        binding.playlistRightVolumeSeekBar.setOnSeekBarChangeListener(simpleListener { value ->
+            PlaylistPlaybackService.engine.rightVolume = value
+            SettingsStorage.savePlaylistRightVolume(this, value)
+        })
     }
 
     private fun setupPlaylistSpeedControl() {
@@ -815,27 +843,95 @@ class MainActivity : AppCompatActivity() {
     private fun setupPlaylistEqualizer() {
         val inflater = LayoutInflater.from(this)
         val engine = PlaylistPlaybackService.engine
+
         for (band in 0 until PlaylistPlayerEngine.EQ_BAND_COUNT) {
-            val rowBinding = ItemEqBandSliderBinding.inflate(inflater, binding.playlistEqContainer, false)
-            rowBinding.eqBandLabel.text = formatFrequencyLabel(PlaylistPlayerEngine.EQ_BAND_FREQUENCIES[band])
+            val rowBinding = ItemEqBandSliderBinding.inflate(inflater, binding.playlistEqRightContainer, false)
+            bindPlaylistEqRow(rowBinding, band, engine.rightEqBandGainsDb[band]) { newGain ->
+                PlaylistPlaybackService.engine.setRightEqBandGain(band, newGain)
+                SettingsStorage.savePlaylistRightEqGain(this, band, newGain)
+            }
+            binding.playlistEqRightContainer.addView(rowBinding.root)
+            eqRightRowBindings.add(rowBinding)
+        }
 
-            val gainDb = engine.eqBandGainsDb[band]
-            rowBinding.eqBandSeekBar.progress = (gainDb + 15).toInt()
-            rowBinding.eqBandValueText.text = getString(R.string.playlist_eq_gain_format, gainDb.toInt())
+        for (band in 0 until PlaylistPlayerEngine.EQ_BAND_COUNT) {
+            val rowBinding = ItemEqBandSliderBinding.inflate(inflater, binding.playlistEqLeftContainer, false)
+            bindPlaylistEqRow(rowBinding, band, engine.leftEqBandGainsDb[band]) { newGain ->
+                PlaylistPlaybackService.engine.setLeftEqBandGain(band, newGain)
+                SettingsStorage.savePlaylistLeftEqGain(this, band, newGain)
+            }
+            binding.playlistEqLeftContainer.addView(rowBinding.root)
+            eqLeftRowBindings.add(rowBinding)
+        }
 
-            rowBinding.eqBandSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (!fromUser) return
-                    val newGain = (progress - 15).toFloat()
-                    PlaylistPlaybackService.engine.setEqBandGain(band, newGain)
-                    rowBinding.eqBandValueText.text = getString(R.string.playlist_eq_gain_format, newGain.toInt())
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
+        binding.playlistEqFromAudiogramButton.setOnClickListener { applyPlaylistEqFromAudiogram() }
+    }
 
-            binding.playlistEqContainer.addView(rowBinding.root)
-            eqRowBindings.add(rowBinding)
+    private fun bindPlaylistEqRow(
+        rowBinding: ItemEqBandSliderBinding,
+        band: Int,
+        initialGainDb: Float,
+        onChanged: (Float) -> Unit
+    ) {
+        rowBinding.eqBandLabel.text = formatFrequencyLabel(PlaylistPlayerEngine.EQ_BAND_FREQUENCIES[band])
+        rowBinding.eqBandSeekBar.progress = (initialGainDb + 15).toInt()
+        rowBinding.eqBandValueText.text = getString(R.string.playlist_eq_gain_format, initialGainDb.toInt())
+
+        rowBinding.eqBandSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                val newGain = (progress - 15).toFloat()
+                onChanged(newGain)
+                rowBinding.eqBandValueText.text = getString(R.string.playlist_eq_gain_format, newGain.toInt())
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+    }
+
+    /**
+     * تنظیم خودکار اکولایزر مستقل هر گوش بر اساس نتیجه آخرین آزمون اودیوگرام: فرکانس‌هایی که
+     * در آن‌ها افت شنوایی بیشتری وجود دارد (آستانه پایین‌تر)، با شدت بیشتری تقویت می‌شوند —
+     * فقط تقویت مثبت اعمال می‌شود، نه کاهش فرکانس‌های شنوایی خوب.
+     */
+    private fun applyPlaylistEqFromAudiogram() {
+        val result = AudiogramStorage.loadLastResult(this)
+        if (result == null) {
+            MessageDialog.show(this, R.string.optimize_no_audiogram)
+            return
+        }
+
+        val rightGains = AudiogramNoiseShaper.computeEarEqBoostDb(
+            result.rightThresholdsDb, result.frequenciesHz, PlaylistPlayerEngine.EQ_BAND_FREQUENCIES
+        )
+        val leftGains = AudiogramNoiseShaper.computeEarEqBoostDb(
+            result.leftThresholdsDb, result.frequenciesHz, PlaylistPlayerEngine.EQ_BAND_FREQUENCIES
+        )
+
+        for (band in rightGains.indices) {
+            PlaylistPlaybackService.engine.setRightEqBandGain(band, rightGains[band])
+            SettingsStorage.savePlaylistRightEqGain(this, band, rightGains[band])
+        }
+        for (band in leftGains.indices) {
+            PlaylistPlaybackService.engine.setLeftEqBandGain(band, leftGains[band])
+            SettingsStorage.savePlaylistLeftEqGain(this, band, leftGains[band])
+        }
+
+        refreshPlaylistEqualizerUI()
+        MessageDialog.show(this, R.string.playlist_eq_applied_toast)
+    }
+
+    private fun refreshPlaylistEqualizerUI() {
+        val engine = PlaylistPlaybackService.engine
+        for (band in eqRightRowBindings.indices) {
+            val gainDb = engine.rightEqBandGainsDb.getOrNull(band) ?: continue
+            eqRightRowBindings[band].eqBandSeekBar.progress = (gainDb + 15).toInt()
+            eqRightRowBindings[band].eqBandValueText.text = getString(R.string.playlist_eq_gain_format, gainDb.toInt())
+        }
+        for (band in eqLeftRowBindings.indices) {
+            val gainDb = engine.leftEqBandGainsDb.getOrNull(band) ?: continue
+            eqLeftRowBindings[band].eqBandSeekBar.progress = (gainDb + 15).toInt()
+            eqLeftRowBindings[band].eqBandValueText.text = getString(R.string.playlist_eq_gain_format, gainDb.toInt())
         }
     }
 
