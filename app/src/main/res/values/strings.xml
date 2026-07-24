@@ -228,7 +228,6 @@
     <string name="playlist_notch_title">حذف فرکانس از موسیقی (Notch)</string>
     <string name="playlist_notch_description">دقیقاً مثل بخش «حذف فرکانس وزوز» در تب ماسکر نویزی: فرکانس وزوز گوش خود را وارد کنید تا همان باند از موسیقی در حال پخش هم حذف شود.</string>
     <string name="notification_playlist_channel_name">پخش پلی‌لیست موسیقی</string>
-    <string name="notification_playlist_text">برای مدیریت پخش، اعلان را باز کنید</string>
 
     <!-- ==================== تب «سمعک» ==================== -->
     <string name="tab_hearing_aid">سمعک</string>

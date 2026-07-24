@@ -8,15 +8,25 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
+import androidx.media.app.NotificationCompat as MediaNotificationCompat
 import com.masker.app.MainActivity
 import com.masker.app.R
 import com.masker.app.storage.MaskerStorage
 import java.io.File
 
 /**
- * سرویس فورگراند پخش پلی‌لیست موسیقی در پس‌زمینه، با کنترل «قبلی / پخش‌-مکث / بعدی» از طریق
- * اعلان — مشابه سرویس پخش ماسکر ([com.masker.app.service.PlaybackService]) اما برای پلی‌لیست.
+ * سرویس فورگراند پخش پلی‌لیست موسیقی در پس‌زمینه، با کنترل «قبلی / پخش‌-مکث / بعدی / توقف» از
+ * طریق اعلان — مشابه سرویس پخش ماسکر ([com.masker.app.service.PlaybackService]) اما برای پلی‌لیست.
+ *
+ * از [MediaSessionCompat] و سبک [MediaNotificationCompat.MediaStyle] استفاده می‌شود تا دکمه‌های
+ * پخش/مکث و توقف همان لحظه اول (بدون نیاز به باز کردن/گسترش اعلان) در پرده اعلان‌ها دیده شوند —
+ * دقیقاً مثل اعلان‌های پخش موسیقی استاندارد اندروید.
  */
 class PlaylistPlaybackService : Service() {
 
@@ -44,10 +54,14 @@ class PlaylistPlaybackService : Service() {
         var onStateChanged: (() -> Unit)? = null
     }
 
+    private lateinit var mediaSession: MediaSessionCompat
+
     override fun onCreate() {
         super.onCreate()
         engine.onCompletion = { playNextInternal() }
         engine.onError = { playNextInternal() }
+        mediaSession = MediaSessionCompat(this, "MaskerPlaylistSession")
+        mediaSession.isActive = true
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -67,6 +81,7 @@ class PlaylistPlaybackService : Service() {
             ACTION_STOP -> {
                 engine.stop()
                 currentIndex = -1
+                updateMediaSessionState()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 onStateChanged?.invoke()
@@ -102,8 +117,34 @@ class PlaylistPlaybackService : Service() {
         playIndex(prev)
     }
 
+    /** وضعیت پخش/فراداده جلسه رسانه را با وضعیت واقعی موتور هماهنگ می‌کند؛ لازم برای رسم صحیح MediaStyle */
+    private fun updateMediaSessionState() {
+        val stateCode = when {
+            !engine.isPlaying -> PlaybackStateCompat.STATE_STOPPED
+            engine.isPaused -> PlaybackStateCompat.STATE_PAUSED
+            else -> PlaybackStateCompat.STATE_PLAYING
+        }
+        val playbackState = PlaybackStateCompat.Builder()
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+            )
+            .setState(stateCode, engine.positionMs, 1f)
+            .build()
+        mediaSession.setPlaybackState(playbackState)
+
+        val trackTitle = tracks.getOrNull(currentIndex)?.title ?: getString(R.string.tab_playlist)
+        val metadata = MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, trackTitle)
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, engine.durationMs)
+            .build()
+        mediaSession.setMetadata(metadata)
+    }
+
     private fun buildNotification(): Notification {
         createChannelIfNeeded()
+        updateMediaSessionState()
 
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -118,9 +159,16 @@ class PlaylistPlaybackService : Service() {
         val playPauseLabel = if (engine.isPaused) getString(R.string.play) else getString(R.string.pause)
         val playPauseIcon = if (engine.isPaused) R.drawable.ic_notif_play else R.drawable.ic_notif_pause
 
+        // تامنیل آهنگ در حال پخش (در صورت وجود)، وگرنه آیکن عمومی نُت موسیقی، به‌عنوان تصویر
+        // بزرگ کنار عنوان اعلان — دقیقاً مثل جلد آلبوم در اعلان‌های پخش موسیقی استاندارد
+        val currentTrackId = tracks.getOrNull(currentIndex)?.id
+        val largeIcon = currentTrackId?.let { PlaylistThumbnails.loadBitmap(this, it) }
+            ?: ContextCompat.getDrawable(this, R.drawable.ic_music_note)?.toBitmap()
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(trackTitle)
-            .setContentText(getString(R.string.notification_playlist_text))
+            .setContentTitle(getString(R.string.tab_playlist))
+            .setContentText(trackTitle)
+            .setLargeIcon(largeIcon)
             .setSmallIcon(R.drawable.ic_music_note_notification)
             .setOngoing(true)
             .setContentIntent(contentPendingIntent)
@@ -128,6 +176,11 @@ class PlaylistPlaybackService : Service() {
             .addAction(playPauseIcon, playPauseLabel, servicePendingIntent(ACTION_PAUSE_RESUME, 2))
             .addAction(R.drawable.ic_notif_skip_next, getString(R.string.playlist_next), servicePendingIntent(ACTION_NEXT, 3))
             .addAction(R.drawable.ic_notif_stop, getString(R.string.stop), servicePendingIntent(ACTION_STOP, 4))
+            .setStyle(
+                MediaNotificationCompat.MediaStyle()
+                    .setMediaSession(mediaSession.sessionToken)
+                    .setShowActionsInCompactView(1, 3)
+            )
             .build()
     }
 
@@ -153,6 +206,8 @@ class PlaylistPlaybackService : Service() {
 
     override fun onDestroy() {
         engine.stop()
+        mediaSession.isActive = false
+        mediaSession.release()
         super.onDestroy()
     }
 }
