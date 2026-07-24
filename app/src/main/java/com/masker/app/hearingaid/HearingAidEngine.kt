@@ -5,11 +5,13 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
+import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.masker.app.audio.BiquadPeakingEq
@@ -21,6 +23,15 @@ import kotlin.math.max
  * جداگانه با اکولایزر گرافیکی هفت‌باندی (که می‌تواند از نتیجه اودیوگرام فراخوانی شود) و
  * بهره کلی تقویت می‌کند و هم‌زمان با ماسکر (نویزی/تونال) از طریق هدفون پخش می‌کند.
  *
+ * برای حداقل‌رساندن تأخیر (مثل «مود گیمینگ» هدفون‌های بی‌سیم): نرخ نمونه‌برداری و اندازه
+ * بافر با مقادیر بومی خروجی صدای گوشی (کوتاه‌ترین بافر پایدار سخت‌افزار) هماهنگ می‌شود، از
+ * AudioSource.VOICE_COMMUNICATION (مسیر پردازش سریع‌تر صوت دوطرفه، همراه با حذف اکوی
+ * سخت‌افزاری) استفاده می‌شود، و در نسخه‌های اندروید پشتیبانی‌کننده، حالت PERFORMANCE_MODE_LOW_LATENCY
+ * روی مسیر پخش (و از اندروید ۱۲ روی مسیر ضبط) درخواست می‌شود. با این حال، اگر هدفون بی‌سیم
+ * (بلوتوث) استفاده شود، بخشی از تأخیر (معمولاً ۱۰۰ تا ۳۰۰ میلی‌ثانیه، بسته به کدک) مربوط به
+ * خود پروتکل بلوتوث است و با هیچ تنظیم نرم‌افزاری در برنامه قابل حذف نیست؛ برای کمترین تأخیر
+ * ممکن، هدفون سیمی توصیه می‌شود.
+ *
  * نکته: چون میکروفون و خروجی هم‌زمان فعال هستند، برای جلوگیری از زوزه بازخورد (feedback)
  * استفاده از هدفون ضروری است؛ در صورت وجود، حذف‌کننده اکو/نویز سیستم‌عامل هم فعال می‌شود.
  */
@@ -28,7 +39,8 @@ class HearingAidEngine {
 
     companion object {
         private const val TAG = "HearingAidEngine"
-        private const val SAMPLE_RATE = 44100
+        private const val FALLBACK_SAMPLE_RATE = 44100
+        private const val FALLBACK_FRAMES_PER_BUFFER = 256
 
         const val EQ_BAND_COUNT = 7
         val EQ_BAND_FREQUENCIES = doubleArrayOf(60.0, 150.0, 400.0, 1000.0, 2400.0, 6000.0, 15000.0)
@@ -79,8 +91,9 @@ class HearingAidEngine {
     fun start(context: Context) {
         if (isRunning || !hasPermission(context)) return
         isRunning = true
+        val appContext = context.applicationContext
         captureThread = thread(name = "HearingAidThread") {
-            runCaptureLoop()
+            runCaptureLoop(appContext)
         }
     }
 
@@ -91,25 +104,39 @@ class HearingAidEngine {
         captureThread = null
     }
 
-    private fun runCaptureLoop() {
+    /** نرخ نمونه‌برداری و اندازه بافر بومی مسیر خروجی صدای گوشی؛ هماهنگی با این مقادیر از
+     *  فعال‌سازی نمونه‌گیری مجدد (resample) داخلی اندروید جلوگیری و مسیر «سریع» صوت را
+     *  فعال می‌کند که مهم‌ترین عامل کاهش تأخیر نرم‌افزاری است. */
+    private fun nativeAudioParams(context: Context): Pair<Int, Int> {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        val sampleRate = audioManager
+            ?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)
+            ?.toIntOrNull()
+            ?: FALLBACK_SAMPLE_RATE
+        val framesPerBuffer = audioManager
+            ?.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER)
+            ?.toIntOrNull()
+            ?: FALLBACK_FRAMES_PER_BUFFER
+        return sampleRate to framesPerBuffer
+    }
+
+    private fun runCaptureLoop(context: Context) {
+        val (sampleRate, nativeFramesPerBuffer) = nativeAudioParams(context)
+
         val minRecBuf = AudioRecord.getMinBufferSize(
-            SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
+            sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
         )
         if (minRecBuf <= 0) {
             Log.w(TAG, "invalid min record buffer size")
             isRunning = false
             return
         }
-        val recBufSize = max(minRecBuf, 2048) * 2
+        // بافر ضبط تا حد امکان کوچک نگه داشته می‌شود (فقط حداقل لازم برای پایداری سخت‌افزار)
+        // تا تأخیر اضافه نکند؛ اندازه بافر بزرگ‌تر مساوی است با تأخیر بیشتر، نه کیفیت بهتر.
+        val recBufSize = max(minRecBuf, nativeFramesPerBuffer * 2 /* bytes/frame mono 16-bit */)
 
         val record = try {
-            AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                recBufSize
-            )
+            buildLowLatencyAudioRecord(sampleRate, recBufSize)
         } catch (e: SecurityException) {
             Log.w(TAG, "record audio permission denied", e)
             isRunning = false
@@ -131,11 +158,11 @@ class HearingAidEngine {
         } else null
 
         val minPlayBuf = AudioTrack.getMinBufferSize(
-            SAMPLE_RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT
+            sampleRate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT
         )
-        val playBufSize = max(minPlayBuf, 4096) * 2
+        val playBufSize = max(minPlayBuf, nativeFramesPerBuffer * 4 /* bytes/frame stereo 16-bit */)
 
-        val track = AudioTrack.Builder()
+        val trackBuilder = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -144,20 +171,23 @@ class HearingAidEngine {
             )
             .setAudioFormat(
                 AudioFormat.Builder()
-                    .setSampleRate(SAMPLE_RATE)
+                    .setSampleRate(sampleRate)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .build()
             )
             .setBufferSizeInBytes(playBufSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            trackBuilder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+        }
+        val track = trackBuilder.build()
 
         leftEqFilters = Array(EQ_BAND_COUNT) { i ->
-            BiquadPeakingEq(SAMPLE_RATE, EQ_BAND_FREQUENCIES[i], leftEqBandGainsDb[i])
+            BiquadPeakingEq(sampleRate, EQ_BAND_FREQUENCIES[i], leftEqBandGainsDb[i])
         }
         rightEqFilters = Array(EQ_BAND_COUNT) { i ->
-            BiquadPeakingEq(SAMPLE_RATE, EQ_BAND_FREQUENCIES[i], rightEqBandGainsDb[i])
+            BiquadPeakingEq(sampleRate, EQ_BAND_FREQUENCIES[i], rightEqBandGainsDb[i])
         }
 
         val chunkSamples = recBufSize / 2
@@ -210,6 +240,54 @@ class HearingAidEngine {
             leftEqFilters = null
             rightEqFilters = null
             isRunning = false
+        }
+    }
+
+    /**
+     * AudioSource.VOICE_COMMUNICATION به‌جای MIC استفاده می‌شود: این منبع روی مسیر پردازش صوت
+     * دوطرفهٔ سریع‌تر سخت‌افزار قرار می‌گیرد (همان مسیری که تماس‌های صوتی/VoIP از آن استفاده
+     * می‌کنند) و معمولاً تأخیر کمتری نسبت به MIC معمولی دارد؛ چون بلندگو-میکروفون گوشی نیستیم
+     * بلکه هدفون است، این منبع باند فرکانسی صدا را محدود نمی‌کند. اگر ساخت آن با خطا مواجه شود
+     * (روی برخی گوشی‌ها)، به MIC معمولی بازمی‌گردیم.
+     */
+    private fun buildLowLatencyAudioRecord(sampleRate: Int, bufferSizeBytes: Int): AudioRecord {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val builder = AudioRecord.Builder()
+                    .setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setSampleRate(sampleRate)
+                            .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(bufferSizeBytes)
+                    .setRequestedPerformanceMode(AudioRecord.PERFORMANCE_MODE_LOW_LATENCY)
+                val record = builder.build()
+                if (record.state == AudioRecord.STATE_INITIALIZED) return record
+                record.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "low-latency AudioRecord build failed, falling back", e)
+            }
+        }
+        return try {
+            AudioRecord(
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                sampleRate,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferSizeBytes
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "VOICE_COMMUNICATION source unavailable, falling back to MIC", e)
+            AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                sampleRate,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferSizeBytes
+            )
         }
     }
 

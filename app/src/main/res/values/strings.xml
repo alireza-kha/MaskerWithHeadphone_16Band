@@ -217,7 +217,7 @@
     <string name="tab_hearing_aid">سمعک</string>
     <string name="hearing_aid_title">شبیه‌ساز سمعک پیشرفته</string>
     <string name="hearing_aid_description">صدای اطراف را از میکروفون گوشی دریافت، بر اساس نتیجه اودیوگرام شما در هر گوش جداگانه تقویت و پخش می‌کند؛ می‌توانید هم‌زمان با ماسکر نویزی یا تونال هم استفاده کنید.</string>
-    <string name="hearing_aid_headphone_warning">⚠ برای جلوگیری از زوزه بازخورد، حتماً از هدفون استفاده کنید و از اسپیکر گوشی استفاده نکنید.</string>
+    <string name="hearing_aid_headphone_warning">⚠ برای جلوگیری از زوزه بازخورد، حتماً از هدفون استفاده کنید و از اسپیکر گوشی استفاده نکنید. برای کمترین تأخیر صدا، هدفون سیمی نسبت به بلوتوث ترجیح دارد.</string>
     <string name="hearing_aid_start">روشن کردن سمعک</string>
     <string name="hearing_aid_stop">خاموش کردن سمعک</string>
     <string name="hearing_aid_permission_denied">برای استفاده از سمعک، برنامه به مجوز دسترسی به میکروفون نیاز دارد</string>
