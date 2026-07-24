@@ -183,15 +183,16 @@ class AudiogramActivity : AppCompatActivity() {
             refreshLevelText()
         }
         dialogView.findViewById<Button>(R.id.calibrationDoneButton).setOnClickListener {
-            // توقف صریح تن کالیبراسیون پیش از شروع آزمون: چون dismiss() شنونده onDismiss را
-            // به‌صورت ناهم‌زمان (با یک تأخیر کوتاه) صدا می‌زند، اگر فقط به آن شنونده برای توقف
-            // تکیه می‌شد، اولین تن واقعی آزمون (که startTest() بلافاصله پخش می‌کند) با یک
-            // تأخیر توسط همان توقف ناهم‌زمان قطع می‌شد و کاربر هرگز آن را نمی‌شنید.
+            // توقف صریح تن کالیبراسیون پیش از شروع آزمون. نکته مهم: هیچ شنونده onDismiss ای
+            // نباید HearingTestTonePlayer.stop() را صدا بزند، چون dismiss() آن را به‌صورت
+            // ناهم‌زمان (با کمی تأخیر) اجرا می‌کند — دقیقاً پس از این‌که startTest() اولین تن
+            // واقعی آزمون را شروع کرده، و همان توقفِ دیرهنگام، آن تن واقعی را (نه تن
+            // کالیبراسیون را) قطع می‌کرد و کاربر هرگز آن را نمی‌شنید. چون این دیالوگ
+            // cancelable=false است، تنها راه بسته‌شدنش همین دکمه است، پس توقف صریح زیر کافی است.
             HearingTestTonePlayer.stop()
             dialog.dismiss()
             startTest()
         }
-        dialog.setOnDismissListener { HearingTestTonePlayer.stop() }
         dialog.show()
     }
 
@@ -295,7 +296,10 @@ class AudiogramActivity : AppCompatActivity() {
             return
         }
 
-        runTestPhase(masked = true, blocks = flagged, catchTrialCount = MAIN_PHASE_CATCH_TRIALS) {
+        // بدون کوشش کنترلی: این یک بازآزمایی هدفمند و کوچک روی چند فرکانس مشخص است (نه آزمون
+        // اصلی)، دقیقاً مثل بررسی خودکار جزئی ماسکینگ؛ با چند بلوک کم، حتی یکی دو کوشش کنترلی هم
+        // می‌تواند بر بلوک‌های واقعی غلبه کند و سکوت‌های پشت‌سرهم ایجاد کند.
+        runTestPhase(masked = true, blocks = flagged, catchTrialCount = 0) {
             finalizeAndShow()
         }
     }

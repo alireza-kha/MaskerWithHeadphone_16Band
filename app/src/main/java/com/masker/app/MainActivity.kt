@@ -784,7 +784,7 @@ class MainActivity : AppCompatActivity() {
         playlistAdapter = PlaylistAdapter(
             mutableListOf(),
             onClick = { position -> playPlaylistTrack(position) },
-            onLongPress = { position -> confirmRemovePlaylistTrack(position) }
+            onSelectionModeChanged = { active -> updatePlaylistSelectionMenuVisibility(active) }
         )
         val screenWidthDp = resources.displayMetrics.widthPixels / resources.displayMetrics.density
         val spanCount = (screenWidthDp / 78).toInt().coerceAtLeast(3)
@@ -797,7 +797,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.playlistSelectAllButton.setOnClickListener { playlistAdapter.selectAll() }
         binding.playlistDeleteSelectedButton.setOnClickListener { confirmDeleteSelectedPlaylistTracks() }
-        binding.playlistDeleteAllButton.setOnClickListener { confirmDeleteAllPlaylistTracks() }
+        binding.playlistClearSelectionButton.setOnClickListener { playlistAdapter.exitSelectionMode() }
 
         binding.playlistPrevButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_PREV) }
         binding.playlistNextButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_NEXT) }
@@ -1055,41 +1055,11 @@ class MainActivity : AppCompatActivity() {
         startService(intent)
     }
 
-    private fun confirmRemovePlaylistTrack(position: Int) {
-        val track = PlaylistPlaybackService.tracks.getOrNull(position) ?: return
-        AlertDialog.Builder(this)
-            .setTitle(R.string.delete)
-            .setMessage(getString(R.string.playlist_remove_confirm, track.title))
-            .setPositiveButton(R.string.delete) { _, _ -> removePlaylistTrack(position) }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-
-    private fun removePlaylistTrack(position: Int) {
-        val track = PlaylistPlaybackService.tracks.getOrNull(position) ?: return
-        val isCurrentlyPlaying = position == PlaylistPlaybackService.currentIndex
-        if (isCurrentlyPlaying) {
-            sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP)
-        }
-        PlaylistStorage.removeTrack(this, track.id)
-        refreshPlaylistUI()
-    }
-
-    private fun confirmDeleteAllPlaylistTracks() {
-        if (PlaylistPlaybackService.tracks.isEmpty()) return
-        AlertDialog.Builder(this)
-            .setTitle(R.string.delete)
-            .setMessage(R.string.playlist_delete_all_confirm)
-            .setPositiveButton(R.string.delete) { _, _ -> deleteAllPlaylistTracks() }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-
-    private fun deleteAllPlaylistTracks() {
-        sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP)
-        PlaylistStorage.removeAllTracks(this)
-        playlistAdapter.clearSelection()
-        refreshPlaylistUI()
+    /** فقط با نگه‌داشتن طولانی روی یک آهنگ (در PlaylistAdapter) فعال می‌شود؛ منوی حذف/انتخاب
+     * را نشان یا پنهان می‌کند و راهنمای متنی زیر دکمه افزودن فایل را برعکس آن نشان می‌دهد */
+    private fun updatePlaylistSelectionMenuVisibility(selectionModeActive: Boolean) {
+        binding.playlistSelectionMenu.visibility = if (selectionModeActive) android.view.View.VISIBLE else android.view.View.GONE
+        binding.playlistLongPressHintText.visibility = if (selectionModeActive) android.view.View.GONE else android.view.View.VISIBLE
     }
 
     private fun confirmDeleteSelectedPlaylistTracks() {
@@ -1112,7 +1082,7 @@ class MainActivity : AppCompatActivity() {
             sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP)
         }
         PlaylistStorage.removeTracks(this, selectedIds)
-        playlistAdapter.clearSelection()
+        playlistAdapter.onItemsDeleted()
         refreshPlaylistUI()
     }
 

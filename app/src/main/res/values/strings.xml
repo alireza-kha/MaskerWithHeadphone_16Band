@@ -207,13 +207,12 @@
     <string name="playlist_add_files">افزودن فایل صوتی به پلی‌لیست</string>
     <string name="playlist_empty">هنوز هیچ آهنگی به پلی‌لیست اضافه نشده است</string>
     <string name="playlist_import_failed">افزودن فایل صوتی با خطا مواجه شد</string>
-    <string name="playlist_remove_confirm">آهنگ «%1$s» از پلی‌لیست حذف شود؟</string>
     <string name="playlist_select_all">انتخاب همه</string>
-    <string name="playlist_delete_all">حذف همه</string>
-    <string name="playlist_delete_selected">حذف انتخاب‌شده‌ها</string>
-    <string name="playlist_delete_all_confirm">همه آهنگ‌های پلی‌لیست برای همیشه حذف شوند؟</string>
+    <string name="playlist_delete_selected">حذف</string>
+    <string name="playlist_clear_selection">برداشتن همه انتخاب‌ها</string>
     <string name="playlist_delete_selected_confirm">%1$d آهنگ انتخاب‌شده برای همیشه حذف شوند؟</string>
-    <string name="playlist_no_selection">ابتدا حداقل یک آهنگ را با چک‌باکس انتخاب کنید</string>
+    <string name="playlist_no_selection">ابتدا حداقل یک آهنگ را انتخاب کنید</string>
+    <string name="playlist_long_press_hint">برای انتخاب چند آهنگ (و حذف گروهی)، روی یکی از آن‌ها نگه دارید</string>
     <string name="playlist_nothing_playing">چیزی در حال پخش نیست</string>
     <string name="playlist_previous">قبلی</string>
     <string name="playlist_next">بعدی</string>

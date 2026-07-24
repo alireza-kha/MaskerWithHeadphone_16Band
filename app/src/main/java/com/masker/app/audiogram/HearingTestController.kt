@@ -101,8 +101,13 @@ class HearingTestController(
      * قرار دهد)، در بازه‌های تقریباً مساوی از صف پخش می‌کند — یک سکوت در هر بازه، در نقطه‌ای
      * تصادفی از همان بازه. بلوک اول صف هرگز کوشش کنترلی نیست تا آزمون با یک تن واقعی شروع شود.
      */
-    private fun insertCatchTrialsSpread(catchTrialCount: Int) {
-        if (catchTrialCount <= 0 || queue.size <= 1) return
+    private fun insertCatchTrialsSpread(requestedCatchTrialCount: Int) {
+        if (requestedCatchTrialCount <= 0 || queue.size <= 1) return
+        // تعداد کوشش‌های کنترلی به حداکثر یک‌سوم اندازه صف محدود می‌شود تا در آزمون‌های کوچک
+        // (مثلاً بازآزمایی هدفمند فقط چند فرکانس با ماسک) سکوت‌های کنترلی بر بلوک‌های واقعی
+        // غلبه نکنند و چند سکوت پشت‌سرهم قرار نگیرد.
+        val catchTrialCount = minOf(requestedCatchTrialCount, queue.size / 3)
+        if (catchTrialCount <= 0) return
         val segments = catchTrialCount
         val insertPositions = mutableListOf<Int>()
         for (s in 0 until segments) {

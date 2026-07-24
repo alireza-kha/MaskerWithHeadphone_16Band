@@ -12,7 +12,7 @@ import com.masker.app.databinding.ItemPlaylistTrackBinding
 class PlaylistAdapter(
     private val items: MutableList<PlaylistTrack>,
     private val onClick: (Int) -> Unit,
-    private val onLongPress: (Int) -> Unit
+    private val onSelectionModeChanged: (Boolean) -> Unit
 ) : RecyclerView.Adapter<PlaylistAdapter.ViewHolder>() {
 
     /** فقط وقتی واقعاً تغییر کند رفرش می‌شود، تا هر بار به‌روزرسانی نوار پیشرفت (هر ۵۰۰ میلی‌ثانیه)
@@ -27,6 +27,11 @@ class PlaylistAdapter(
     /** شناسه‌های آهنگ‌های انتخاب‌شده با چک‌باکس روی هر آیتم، برای «حذف انتخاب‌شده‌ها» */
     private val selectedIds = mutableSetOf<String>()
 
+    /** فقط با نگه‌داشتن طولانی روی یک آهنگ فعال می‌شود؛ در غیر این صورت نه چک‌باکس‌ها و نه
+     * منوی انتخاب دیده نمی‌شوند و ضربه ساده روی هر آهنگ فقط آن را پخش می‌کند */
+    var selectionModeActive = false
+        private set
+
     fun getSelectedIds(): Set<String> = selectedIds.toSet()
 
     fun selectAll() {
@@ -35,14 +40,34 @@ class PlaylistAdapter(
         notifyDataSetChanged()
     }
 
-    fun clearSelection() {
-        if (selectedIds.isEmpty()) return
+    /** خروج کامل از حالت انتخاب: هم تیک‌ها پاک می‌شوند، هم چک‌باکس‌ها و منو دوباره پنهان می‌شوند */
+    fun exitSelectionMode() {
         selectedIds.clear()
+        if (!selectionModeActive) return
+        selectionModeActive = false
+        onSelectionModeChanged(false)
         notifyDataSetChanged()
+    }
+
+    /** پس از حذف موفق آهنگ‌های انتخاب‌شده هم باید از حالت انتخاب خارج شویم */
+    fun onItemsDeleted() {
+        exitSelectionMode()
     }
 
     private fun toggleSelection(trackId: String) {
         if (!selectedIds.add(trackId)) selectedIds.remove(trackId)
+    }
+
+    private fun handleLongPress(position: Int) {
+        val trackId = items.getOrNull(position)?.id ?: return
+        if (!selectionModeActive) {
+            selectionModeActive = true
+            selectedIds.add(trackId)
+            onSelectionModeChanged(true)
+        } else {
+            toggleSelection(trackId)
+        }
+        notifyDataSetChanged()
     }
 
     inner class ViewHolder(val binding: ItemPlaylistTrackBinding) : RecyclerView.ViewHolder(binding.root)
@@ -78,15 +103,26 @@ class PlaylistAdapter(
             b.trackPlayingIndicator.stop()
         }
 
+        b.trackSelectCheckbox.visibility = if (selectionModeActive) View.VISIBLE else View.GONE
         b.trackSelectCheckbox.setOnCheckedChangeListener(null)
         b.trackSelectCheckbox.isChecked = item.id in selectedIds
         b.trackSelectCheckbox.setOnCheckedChangeListener { _, _ ->
             toggleSelection(item.id)
         }
 
-        b.root.setOnClickListener { onClick(holder.bindingAdapterPosition) }
+        b.root.setOnClickListener {
+            val pos = holder.bindingAdapterPosition
+            if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
+            if (selectionModeActive) {
+                toggleSelection(items[pos].id)
+                notifyItemChanged(pos)
+            } else {
+                onClick(pos)
+            }
+        }
         b.root.setOnLongClickListener {
-            onLongPress(holder.bindingAdapterPosition)
+            val pos = holder.bindingAdapterPosition
+            if (pos != RecyclerView.NO_POSITION) handleLongPress(pos)
             true
         }
     }
