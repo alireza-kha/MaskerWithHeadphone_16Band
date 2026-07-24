@@ -26,11 +26,11 @@ import kotlin.math.max
  * برای حداقل‌رساندن تأخیر (مثل «مود گیمینگ» هدفون‌های بی‌سیم): نرخ نمونه‌برداری و اندازه
  * بافر با مقادیر بومی خروجی صدای گوشی (کوتاه‌ترین بافر پایدار سخت‌افزار) هماهنگ می‌شود، از
  * AudioSource.VOICE_COMMUNICATION (مسیر پردازش سریع‌تر صوت دوطرفه، همراه با حذف اکوی
- * سخت‌افزاری) استفاده می‌شود، و در نسخه‌های اندروید پشتیبانی‌کننده، حالت PERFORMANCE_MODE_LOW_LATENCY
- * روی مسیر پخش (و از اندروید ۱۲ روی مسیر ضبط) درخواست می‌شود. با این حال، اگر هدفون بی‌سیم
- * (بلوتوث) استفاده شود، بخشی از تأخیر (معمولاً ۱۰۰ تا ۳۰۰ میلی‌ثانیه، بسته به کدک) مربوط به
- * خود پروتکل بلوتوث است و با هیچ تنظیم نرم‌افزاری در برنامه قابل حذف نیست؛ برای کمترین تأخیر
- * ممکن، هدفون سیمی توصیه می‌شود.
+ * سخت‌افزاری) استفاده می‌شود، و روی مسیر پخش، در اندروید ۸ به بالا حالت
+ * PERFORMANCE_MODE_LOW_LATENCY درخواست می‌شود. با این حال، اگر هدفون بی‌سیم (بلوتوث) استفاده
+ * شود، بخشی از تأخیر (معمولاً ۱۰۰ تا ۳۰۰ میلی‌ثانیه، بسته به کدک) مربوط به خود پروتکل بلوتوث
+ * است و با هیچ تنظیم نرم‌افزاری در برنامه قابل حذف نیست؛ برای کمترین تأخیر ممکن، هدفون سیمی
+ * توصیه می‌شود.
  *
  * نکته: چون میکروفون و خروجی هم‌زمان فعال هستند، برای جلوگیری از زوزه بازخورد (feedback)
  * استفاده از هدفون ضروری است؛ در صورت وجود، حذف‌کننده اکو/نویز سیستم‌عامل هم فعال می‌شود.
@@ -251,44 +251,26 @@ class HearingAidEngine {
      * (روی برخی گوشی‌ها)، به MIC معمولی بازمی‌گردیم.
      */
     private fun buildLowLatencyAudioRecord(sampleRate: Int, bufferSizeBytes: Int): AudioRecord {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                val builder = AudioRecord.Builder()
-                    .setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setSampleRate(sampleRate)
-                            .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(bufferSizeBytes)
-                    .setRequestedPerformanceMode(AudioRecord.PERFORMANCE_MODE_LOW_LATENCY)
-                val record = builder.build()
-                if (record.state == AudioRecord.STATE_INITIALIZED) return record
-                record.release()
-            } catch (e: Exception) {
-                Log.w(TAG, "low-latency AudioRecord build failed, falling back", e)
-            }
-        }
-        return try {
-            AudioRecord(
+        try {
+            val record = AudioRecord(
                 MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                 sampleRate,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
                 bufferSizeBytes
             )
+            if (record.state == AudioRecord.STATE_INITIALIZED) return record
+            record.release()
         } catch (e: Exception) {
             Log.w(TAG, "VOICE_COMMUNICATION source unavailable, falling back to MIC", e)
-            AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                sampleRate,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferSizeBytes
-            )
         }
+        return AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            bufferSizeBytes
+        )
     }
 
     private fun clampToShort(value: Double): Short {
