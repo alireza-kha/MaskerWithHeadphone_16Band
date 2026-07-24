@@ -43,39 +43,64 @@
             android:textSize="13sp"
             android:layout_gravity="center" />
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/modeTabLayout"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            app:tabMode="scrollable">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
 
-            <com.google.android.material.tabs.TabItem
-                android:layout_width="wrap_content"
+            <ImageButton
+                android:id="@+id/tabScrollLeftButton"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tab_scroll_left"
+                android:src="@drawable/ic_arrow_left" />
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/modeTabLayout"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="@string/tab_noise" />
+                android:layout_weight="1"
+                app:tabMode="scrollable">
 
-            <com.google.android.material.tabs.TabItem
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/tab_tonal" />
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tab_noise" />
 
-            <com.google.android.material.tabs.TabItem
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/tab_audiogram" />
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tab_tonal" />
 
-            <com.google.android.material.tabs.TabItem
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/tab_playlist" />
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tab_audiogram" />
 
-            <com.google.android.material.tabs.TabItem
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/tab_hearing_aid" />
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tab_playlist" />
 
-        </com.google.android.material.tabs.TabLayout>
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tab_hearing_aid" />
+
+            </com.google.android.material.tabs.TabLayout>
+
+            <ImageButton
+                android:id="@+id/tabScrollRightButton"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tab_scroll_right"
+                android:src="@drawable/ic_arrow_right" />
+
+        </LinearLayout>
 
         <!-- ===================== محتوای تب «ماسکر نویزی» ===================== -->
         <LinearLayout

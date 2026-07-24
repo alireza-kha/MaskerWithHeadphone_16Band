@@ -79,6 +79,8 @@
     <string name="developer_email_line">ایمیل: %1$s</string>
 
     <string name="tab_noise">ماسکر نویزی</string>
+    <string name="tab_scroll_left">اسکرول تب‌ها به چپ</string>
+    <string name="tab_scroll_right">اسکرول تب‌ها به راست</string>
     <string name="tab_tonal">ماسکر تونال</string>
     <string name="tonal_description">در ماسکر تونال، به‌جای نویز فیلترشده، از تن‌های خالص (موج سینوسی) در ۱۶ فرکانس استفاده می‌شود. می‌توانید یک یا چند فرکانس نزدیک به پرده صدای وزوز گوش خود را انتخاب و شدت آن را تنظیم کنید.</string>
     <string name="tones_title">فرکانس‌های تن (هرتز)</string>

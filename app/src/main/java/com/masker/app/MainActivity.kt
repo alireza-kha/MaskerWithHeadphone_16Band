@@ -193,6 +193,17 @@ class MainActivity : AppCompatActivity() {
             override fun onTabUnselected(tab: TabLayout.Tab) {}
             override fun onTabReselected(tab: TabLayout.Tab) {}
         })
+
+        // فلش‌های کناره نوار تب‌ها: هم راهنمای بصری که نوار قابل اسکرول است، هم میان‌بر برای
+        // جابه‌جایی یک‌تب‌درمیان بدون نیاز به کشیدن مستقیم نوار
+        binding.tabScrollLeftButton.setOnClickListener {
+            val target = (binding.modeTabLayout.selectedTabPosition - 1).coerceAtLeast(0)
+            binding.modeTabLayout.getTabAt(target)?.select()
+        }
+        binding.tabScrollRightButton.setOnClickListener {
+            val target = (binding.modeTabLayout.selectedTabPosition + 1).coerceAtMost(binding.modeTabLayout.tabCount - 1)
+            binding.modeTabLayout.getTabAt(target)?.select()
+        }
     }
 
     /** بارگذاری آخرین مقادیر ذخیره‌شده برای هر دو تب (یا مقدار پیش‌فرض در صورت نبود مقدار قبلی) */
