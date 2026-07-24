@@ -57,6 +57,16 @@ import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        /** برای بازکردن مستقیم یک تب مشخص (مثلاً از طریق اعلان پخش)، هنگام باز شدن یا فعال شدن دوباره صفحه اصلی */
+        const val EXTRA_OPEN_TAB = "com.masker.app.extra.OPEN_TAB"
+        const val TAB_NOISE = 0
+        const val TAB_TONAL = 1
+        const val TAB_AUDIOGRAM = 2
+        const val TAB_PLAYLIST = 3
+        const val TAB_HEARING_AID = 4
+    }
+
     private lateinit var binding: ActivityMainBinding
 
     // ------- مقادیر تب «ماسکر نویزی» -------
@@ -143,6 +153,20 @@ class MainActivity : AppCompatActivity() {
         requestNotificationPermissionIfNeeded()
         requestStoragePermissionIfNeeded()
         ReportSendManager.flushPending(this)
+        handleOpenTabIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenTabIntent(intent)
+    }
+
+    /** وقتی از طریق اعلان پخش (ماسکر یا پلی‌لیست) باز می‌شود، مستقیم همان تب در حال پخش را نشان می‌دهد */
+    private fun handleOpenTabIntent(intent: Intent?) {
+        val tabIndex = intent?.getIntExtra(EXTRA_OPEN_TAB, -1) ?: -1
+        if (tabIndex < 0) return
+        binding.modeTabLayout.getTabAt(tabIndex)?.select()
     }
 
     override fun onResume() {

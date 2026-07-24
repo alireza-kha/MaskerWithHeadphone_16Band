@@ -40,6 +40,9 @@ class PlaybackService : Service() {
         // نمونه‌های مشترک موتورهای صدا تا فعالیت اصلی هم بتواند وضعیت را بخواند/تغییر دهد
         val noiseEngine = NoiseEngine()
         val tonalEngine = TonalEngine()
+
+        /** آخرین حالت پخش‌شده (نویزی/تونال)؛ برای اینکه کلیک روی اعلان به تب درست برود */
+        private var currentMode = MODE_NOISE
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -55,6 +58,7 @@ class PlaybackService : Service() {
             }
             else -> {
                 val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_NOISE
+                currentMode = mode
                 applySettings(intent, mode)
                 startForeground(NOTIFICATION_ID, buildNotification())
                 if (mode == MODE_TONAL) {
@@ -96,7 +100,11 @@ class PlaybackService : Service() {
     private fun buildNotification(): Notification {
         createChannelIfNeeded()
 
-        val openAppIntent = Intent(this, MainActivity::class.java)
+        val openAppIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            val tabIndex = if (currentMode == MODE_TONAL) MainActivity.TAB_TONAL else MainActivity.TAB_NOISE
+            putExtra(MainActivity.EXTRA_OPEN_TAB, tabIndex)
+        }
         val contentPendingIntent = PendingIntent.getActivity(
             this, 0, openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -114,7 +122,7 @@ class PlaybackService : Service() {
             .setSmallIcon(R.drawable.ic_masker_notification)
             .setOngoing(true)
             .setContentIntent(contentPendingIntent)
-            .addAction(0, getString(R.string.stop), stopPendingIntent)
+            .addAction(R.drawable.ic_notif_stop, getString(R.string.stop), stopPendingIntent)
             .build()
     }
 

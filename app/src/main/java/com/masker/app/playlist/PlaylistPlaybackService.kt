@@ -105,7 +105,10 @@ class PlaylistPlaybackService : Service() {
     private fun buildNotification(): Notification {
         createChannelIfNeeded()
 
-        val openAppIntent = Intent(this, MainActivity::class.java)
+        val openAppIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(MainActivity.EXTRA_OPEN_TAB, MainActivity.TAB_PLAYLIST)
+        }
         val contentPendingIntent = PendingIntent.getActivity(
             this, 0, openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -113,16 +116,18 @@ class PlaylistPlaybackService : Service() {
 
         val trackTitle = tracks.getOrNull(currentIndex)?.title ?: getString(R.string.tab_playlist)
         val playPauseLabel = if (engine.isPaused) getString(R.string.play) else getString(R.string.pause)
+        val playPauseIcon = if (engine.isPaused) R.drawable.ic_notif_play else R.drawable.ic_notif_pause
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(trackTitle)
             .setContentText(getString(R.string.notification_playlist_text))
-            .setSmallIcon(R.drawable.ic_masker_notification)
+            .setSmallIcon(R.drawable.ic_music_note_notification)
             .setOngoing(true)
             .setContentIntent(contentPendingIntent)
-            .addAction(0, getString(R.string.playlist_previous), servicePendingIntent(ACTION_PREV, 1))
-            .addAction(0, playPauseLabel, servicePendingIntent(ACTION_PAUSE_RESUME, 2))
-            .addAction(0, getString(R.string.playlist_next), servicePendingIntent(ACTION_NEXT, 3))
+            .addAction(R.drawable.ic_notif_skip_previous, getString(R.string.playlist_previous), servicePendingIntent(ACTION_PREV, 1))
+            .addAction(playPauseIcon, playPauseLabel, servicePendingIntent(ACTION_PAUSE_RESUME, 2))
+            .addAction(R.drawable.ic_notif_skip_next, getString(R.string.playlist_next), servicePendingIntent(ACTION_NEXT, 3))
+            .addAction(R.drawable.ic_notif_stop, getString(R.string.stop), servicePendingIntent(ACTION_STOP, 4))
             .build()
     }
 
