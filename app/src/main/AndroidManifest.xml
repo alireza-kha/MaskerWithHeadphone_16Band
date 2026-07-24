@@ -93,6 +93,19 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- دریافت درخواست همگام‌سازی از اپ ساعت هوشمند (masker_AndroidWatch) -->
+        <service
+            android:name=".wearsync.WearRequestListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/masker" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".schedule.ScheduleReceiver"
             android:exported="false" />

@@ -48,6 +48,7 @@ import com.masker.app.schedule.ScheduleActivity
 import com.masker.app.service.PlaybackService
 import com.masker.app.storage.MaskerStorage
 import com.masker.app.ui.MessageDialog
+import com.masker.app.wearsync.MaskerWearSyncManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -174,6 +175,9 @@ class MainActivity : AppCompatActivity() {
         updateLastAudiogramSummary()
         refreshPlaylistUI()
         playlistUiHandler.post(playlistUiUpdater)
+        // هر بار اپ به فورگراند برمی‌گردد (مثلاً پس از ثبت یک آزمون اودیوگرام جدید)، آخرین
+        // وضعیت ماسکر نویزی را برای اپ ساعت هوشمند (در صورت اتصال) به‌روزرسانی می‌کند
+        MaskerWearSyncManager.pushStateDebounced(this)
     }
 
     override fun onPause() {
@@ -311,6 +315,7 @@ class MainActivity : AppCompatActivity() {
                     bandGains[i] = value
                     PlaybackService.noiseEngine.bandGains[i] = value
                     SettingsStorage.saveBandGain(this@MainActivity, i, value)
+                    MaskerWearSyncManager.pushStateDebounced(this@MainActivity)
 
                     isUpdatingProgrammatically = true
                     val currentText = rowBinding.bandEditText.text?.toString()
@@ -337,6 +342,7 @@ class MainActivity : AppCompatActivity() {
                     bandGains[i] = value
                     PlaybackService.noiseEngine.bandGains[i] = value
                     SettingsStorage.saveBandGain(this@MainActivity, i, value)
+                    MaskerWearSyncManager.pushStateDebounced(this@MainActivity)
 
                     isUpdatingProgrammatically = true
                     rowBinding.bandSeekBar.progress = clamped
@@ -355,6 +361,7 @@ class MainActivity : AppCompatActivity() {
             masterVolume = value
             PlaybackService.noiseEngine.masterVolume = value
             SettingsStorage.saveMasterVolume(this, value)
+            MaskerWearSyncManager.pushStateDebounced(this)
         })
 
         binding.leftVolumeSeekBar.progress = (leftVolume * 100).toInt()
@@ -362,6 +369,7 @@ class MainActivity : AppCompatActivity() {
             leftVolume = value
             PlaybackService.noiseEngine.leftVolume = value
             SettingsStorage.saveLeftVolume(this, value)
+            MaskerWearSyncManager.pushStateDebounced(this)
         })
 
         binding.rightVolumeSeekBar.progress = (rightVolume * 100).toInt()
@@ -369,6 +377,7 @@ class MainActivity : AppCompatActivity() {
             rightVolume = value
             PlaybackService.noiseEngine.rightVolume = value
             SettingsStorage.saveRightVolume(this, value)
+            MaskerWearSyncManager.pushStateDebounced(this)
         })
     }
 
@@ -395,6 +404,7 @@ class MainActivity : AppCompatActivity() {
                 SettingsStorage.saveNotchSettings(this, false, notchFrequencyHz, notchWidthOctaves)
                 binding.toggleNotchButton.text = getString(R.string.enable_notch)
                 updateNotchStatusText()
+                MaskerWearSyncManager.pushStateDebounced(this)
             } else {
                 val freqText = binding.notchFrequencyEditText.text?.toString()?.trim().orEmpty()
                 val freq = freqText.toDoubleOrNull()
@@ -412,6 +422,7 @@ class MainActivity : AppCompatActivity() {
                 SettingsStorage.saveNotchSettings(this, true, freq, width)
                 binding.toggleNotchButton.text = getString(R.string.disable_notch)
                 updateNotchStatusText()
+                MaskerWearSyncManager.pushStateDebounced(this)
             }
         }
 
@@ -479,6 +490,7 @@ class MainActivity : AppCompatActivity() {
                 // موتور صدا و حافظه ذخیره‌سازی را هم به‌روزرسانی می‌کند (از طریق TextWatcher موجود)
                 bandRowBindings[i].bandEditText.setText(progress.toString())
             }
+            MaskerWearSyncManager.pushStateDebounced(this)
 
             MessageDialog.show(this, R.string.optimize_applied_toast)
         }
@@ -499,6 +511,7 @@ class MainActivity : AppCompatActivity() {
                 PlaybackService.noiseEngine.modulationDepth = modulationDepth
                 SettingsStorage.saveModulationSettings(this@MainActivity, modulationEnabled, modulationDepth)
                 updateModulationStatusText()
+                MaskerWearSyncManager.pushStateDebounced(this@MainActivity)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -512,6 +525,7 @@ class MainActivity : AppCompatActivity() {
                 if (modulationEnabled) R.string.disable_modulation else R.string.enable_modulation
             )
             updateModulationStatusText()
+            MaskerWearSyncManager.pushStateDebounced(this)
         }
     }
 
