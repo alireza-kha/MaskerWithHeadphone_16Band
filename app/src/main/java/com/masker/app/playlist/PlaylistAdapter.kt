@@ -24,6 +24,27 @@ class PlaylistAdapter(
             notifyDataSetChanged()
         }
 
+    /** شناسه‌های آهنگ‌های انتخاب‌شده با چک‌باکس روی هر آیتم، برای «حذف انتخاب‌شده‌ها» */
+    private val selectedIds = mutableSetOf<String>()
+
+    fun getSelectedIds(): Set<String> = selectedIds.toSet()
+
+    fun selectAll() {
+        selectedIds.clear()
+        selectedIds.addAll(items.map { it.id })
+        notifyDataSetChanged()
+    }
+
+    fun clearSelection() {
+        if (selectedIds.isEmpty()) return
+        selectedIds.clear()
+        notifyDataSetChanged()
+    }
+
+    private fun toggleSelection(trackId: String) {
+        if (!selectedIds.add(trackId)) selectedIds.remove(trackId)
+    }
+
     inner class ViewHolder(val binding: ItemPlaylistTrackBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -55,6 +76,12 @@ class PlaylistAdapter(
         } else {
             b.trackPlayingIndicator.visibility = View.GONE
             b.trackPlayingIndicator.stop()
+        }
+
+        b.trackSelectCheckbox.setOnCheckedChangeListener(null)
+        b.trackSelectCheckbox.isChecked = item.id in selectedIds
+        b.trackSelectCheckbox.setOnCheckedChangeListener { _, _ ->
+            toggleSelection(item.id)
         }
 
         b.root.setOnClickListener { onClick(holder.bindingAdapterPosition) }

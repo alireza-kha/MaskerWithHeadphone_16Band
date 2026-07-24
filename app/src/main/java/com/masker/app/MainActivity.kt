@@ -111,6 +111,7 @@ class MainActivity : AppCompatActivity() {
     // ------- تب «سمعک» -------
     private val hearingAidEqRightRowBindings = mutableListOf<ItemEqBandSliderBinding>()
     private val hearingAidEqLeftRowBindings = mutableListOf<ItemEqBandSliderBinding>()
+    private var hearingAidUiOn = false
 
     private val requestMicPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -794,6 +795,10 @@ class MainActivity : AppCompatActivity() {
             pickAudioFilesLauncher.launch(arrayOf("audio/*"))
         }
 
+        binding.playlistSelectAllButton.setOnClickListener { playlistAdapter.selectAll() }
+        binding.playlistDeleteSelectedButton.setOnClickListener { confirmDeleteSelectedPlaylistTracks() }
+        binding.playlistDeleteAllButton.setOnClickListener { confirmDeleteAllPlaylistTracks() }
+
         binding.playlistPrevButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_PREV) }
         binding.playlistNextButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_NEXT) }
         binding.playlistStopButton.setOnClickListener { sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP) }
@@ -1070,6 +1075,47 @@ class MainActivity : AppCompatActivity() {
         refreshPlaylistUI()
     }
 
+    private fun confirmDeleteAllPlaylistTracks() {
+        if (PlaylistPlaybackService.tracks.isEmpty()) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.delete)
+            .setMessage(R.string.playlist_delete_all_confirm)
+            .setPositiveButton(R.string.delete) { _, _ -> deleteAllPlaylistTracks() }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun deleteAllPlaylistTracks() {
+        sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP)
+        PlaylistStorage.removeAllTracks(this)
+        playlistAdapter.clearSelection()
+        refreshPlaylistUI()
+    }
+
+    private fun confirmDeleteSelectedPlaylistTracks() {
+        val selected = playlistAdapter.getSelectedIds()
+        if (selected.isEmpty()) {
+            MessageDialog.show(this, R.string.playlist_no_selection)
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.delete)
+            .setMessage(getString(R.string.playlist_delete_selected_confirm, selected.size))
+            .setPositiveButton(R.string.delete) { _, _ -> deleteSelectedPlaylistTracks(selected) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun deleteSelectedPlaylistTracks(selectedIds: Set<String>) {
+        val currentTrack = PlaylistPlaybackService.tracks.getOrNull(PlaylistPlaybackService.currentIndex)
+        if (currentTrack != null && currentTrack.id in selectedIds) {
+            sendPlaylistAction(PlaylistPlaybackService.ACTION_STOP)
+        }
+        PlaylistStorage.removeTracks(this, selectedIds)
+        playlistAdapter.clearSelection()
+        refreshPlaylistUI()
+    }
+
     private fun importPlaylistFiles(uris: List<Uri>) {
         thread {
             var addedCount = 0
@@ -1163,10 +1209,11 @@ class MainActivity : AppCompatActivity() {
     // ==================== تب «سمعک» ====================
 
     private fun setupHearingAidTab() {
+        hearingAidUiOn = HearingAidService.engine.isRunning
         updateHearingAidPlayButtonLabel()
 
         binding.hearingAidPlayStopButton.setOnClickListener {
-            if (HearingAidService.engine.isRunning) {
+            if (hearingAidUiOn) {
                 stopHearingAid()
             } else {
                 val hasPermission = ContextCompat.checkSelfPermission(
@@ -1220,6 +1267,10 @@ class MainActivity : AppCompatActivity() {
         } else {
             startService(intent)
         }
+        // چون شروع سرویس از طریق Intent ناهم‌زمان است، وضعیت واقعی engine.isRunning بلافاصله
+        // پس از این خط هنوز به‌روز نشده؛ به همین دلیل وضعیت مورد نظر کاربر را مستقیماً و
+        // بلافاصله در متن کلید نشان می‌دهیم، نه با خواندن engine.isRunning.
+        hearingAidUiOn = true
         updateHearingAidPlayButtonLabel()
     }
 
@@ -1228,12 +1279,13 @@ class MainActivity : AppCompatActivity() {
             action = HearingAidService.ACTION_STOP
         }
         startService(intent)
+        hearingAidUiOn = false
         updateHearingAidPlayButtonLabel()
     }
 
     private fun updateHearingAidPlayButtonLabel() {
         binding.hearingAidPlayStopButton.text = getString(
-            if (HearingAidService.engine.isRunning) R.string.hearing_aid_stop else R.string.hearing_aid_start
+            if (hearingAidUiOn) R.string.hearing_aid_stop else R.string.hearing_aid_start
         )
     }
 

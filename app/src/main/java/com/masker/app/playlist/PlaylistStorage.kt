@@ -65,16 +65,35 @@ object PlaylistStorage {
 
     /** حذف یک آهنگ از فهرست و پاک کردن فایل صوتی مربوطه از Documents/Masker/Playlist */
     fun removeTrack(context: Context, trackId: String) {
+        removeTracks(context, setOf(trackId))
+    }
+
+    /** حذف گروهی چند آهنگ انتخاب‌شده (و فایل‌های صوتی/تامنیل مربوطه) با فقط یک بار خواندن/نوشتن فایل فهرست */
+    fun removeTracks(context: Context, trackIds: Set<String>) {
+        if (trackIds.isEmpty()) return
         val all = loadTracks(context).toMutableList()
-        val removed = all.find { it.id == trackId }
-        all.removeAll { it.id == trackId }
+        val removed = all.filter { it.id in trackIds }
+        all.removeAll { it.id in trackIds }
         saveTracks(context, all)
-        removed?.let {
+        for (t in removed) {
             try {
-                File(MaskerStorage.playlistDir(context), it.fileName).delete()
+                File(MaskerStorage.playlistDir(context), t.fileName).delete()
             } catch (_: Exception) {
             }
-            PlaylistThumbnails.deleteThumbnail(context, it.id)
+            PlaylistThumbnails.deleteThumbnail(context, t.id)
+        }
+    }
+
+    /** حذف کل پلی‌لیست (همه فایل‌های صوتی و تامنیل‌ها) */
+    fun removeAllTracks(context: Context) {
+        val all = loadTracks(context)
+        saveTracks(context, emptyList())
+        for (t in all) {
+            try {
+                File(MaskerStorage.playlistDir(context), t.fileName).delete()
+            } catch (_: Exception) {
+            }
+            PlaylistThumbnails.deleteThumbnail(context, t.id)
         }
     }
 

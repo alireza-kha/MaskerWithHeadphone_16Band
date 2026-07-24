@@ -34,9 +34,10 @@ object HearingTestTonePlayer {
     private const val TAG = "HearingTestTonePlayer"
     private const val SAMPLE_RATE = 44100
 
-    // پارامترهای بیپ پالسی (مطابق بازه متداول ۲۰۰ تا ۵۰۰ میلی‌ثانیه در دستورالعمل‌های اودیومتری)
-    private const val PULSE_ON_MS = 400
-    private const val PULSE_OFF_MS = 250
+    // پارامترهای بیپ پالسی (مطابق بازه متداول ۲۰۰ تا ۵۰۰ میلی‌ثانیه در دستورالعمل‌های اودیومتری)؛
+    // برای کمی سریع‌تر شدن آزمون، نزدیک به کف همین بازه استاندارد تنظیم شده (نه پایین‌تر از آن)
+    private const val PULSE_ON_MS = 300
+    private const val PULSE_OFF_MS = 200
 
     @Volatile
     private var isPlaying = false

@@ -9,13 +9,18 @@ package com.masker.app.audiogram
  * ترکیب‌های گوش×فرکانس باشد (آزمون اصلی)، یا فقط زیرمجموعه‌ای خاص (مثلاً بررسی خودکار
  * ماسکینگ فقط در فرکانس‌هایی که معیار تضعیف بین‌گوشی را رد کرده‌اند).
  *
- * برای افزایش پایایی پاسخ‌ها، بر پایه پژوهش‌های اودیومتری خودکار امروزی، دو تکنیک اضافه
+ * برای افزایش پایایی پاسخ‌ها، بر پایه پژوهش‌های اودیومتری خودکار امروزی، چند تکنیک اضافه
  * شده است:
- *  ۱) ترتیب بلوک‌ها به‌صورت تصادفی به هم می‌ریزد (نه گوش راست کامل سپس گوش چپ کامل) تا مغز
- *     نتواند الگوی آزمون را حدس بزند و پیش از شنیدن واقعی صدا پاسخ ندهد.
- *  ۲) چند «کوشش کنترلی» (Catch Trial) بدون پخش هیچ صدایی به‌طور تصادفی در میان بلوک‌ها درج
+ *  ۱) بلوک‌های هر گوش جداگانه به‌هم می‌ریزند و سپس با تناوب کنترل‌شده (حداکثر دو بلوک
+ *     پشت‌سرهم از یک گوش) ادغام می‌شوند — نه فقط یک شافل کاملاً تصادفی که می‌تواند به‌طور
+ *     شانسی چند بلوک از یک گوش را پشت‌سرهم قرار دهد، و نه ترتیب قابل‌پیش‌بینی راست-چپ منظم —
+ *     تا مغز نتواند الگوی آزمون را حدس بزند و پیش از شنیدن واقعی صدا پاسخ ندهد.
+ *  ۲) چند «کوشش کنترلی» (Catch Trial) بدون پخش هیچ صدایی، در بازه‌های تقریباً مساوی از صف
+ *     (نه صرفاً موقعیت‌های کاملاً تصادفی مستقل که می‌تواند چند سکوت را کنار هم بیندازد) درج
  *     می‌شود؛ اگر کاربر در این کوشش‌ها هم دکمه «شنیدم» را بزند (پاسخ مثبت کاذب، نشانه حدس
  *     زدن یا انتظار الگو)، بلوک واقعی بعدی به‌عنوان «نیازمند احتیاط در تفسیر» علامت می‌خورد.
+ *  ۳) تأیید آستانه با تکرار مستقیم همان سطح (به‌جای بازگشت کامل به سطح بلندتر و نزول دوباره)
+ *     انجام می‌شود تا با کوشش‌های کمتر، آزمون سریع‌تر پیش برود.
  *
  * نکته: چون این آزمون روی خروجی هدفون کاربر و بدون کالیبراسیون آزمایشگاهی انجام می‌شود،
  * نتیجه یک سنجش نسبی و شخصی است، نه معادل تشخیص بالینی dB HL.
@@ -59,13 +64,56 @@ class HearingTestController(
     private var trialsThisFrequency = 0
 
     init {
-        queue.addAll(blocks.map { TestBlock.Tone(it.first, it.second) }.shuffled())
-        // درج تصادفی کوشش‌های کنترلی در میان بلوک‌های واقعی (نه دقیقاً در ابتدا یا انتهای صف)
-        repeat(catchTrialCount) {
-            if (queue.size > 1) {
-                val insertAt = (1 until queue.size).random()
-                queue.add(insertAt, TestBlock.Catch)
+        queue.addAll(buildBalancedToneQueue(blocks))
+        insertCatchTrialsSpread(catchTrialCount)
+    }
+
+    /**
+     * به‌جای یک به‌هم‌ریزی کاملاً تصادفی ساده (که به‌طور شانسی می‌تواند چند بلوک پشت‌سرهم از
+     * همان گوش تولید کند)، بلوک‌های هر گوش را جداگانه به‌هم می‌ریزد و سپس با تناوب کنترل‌شده
+     * (حداکثر دو بلوک پشت‌سرهم از یک گوش) با هم ادغام می‌کند تا واقعاً بین دو گوش پخش شوند —
+     * ولی همچنان کاملاً قابل‌پیش‌بینی نباشد (مغز نتواند دقیقاً الگوی راست-چپ-راست-چپ را حدس بزند).
+     */
+    private fun buildBalancedToneQueue(blocks: List<Pair<Ear, Int>>): List<TestBlock.Tone> {
+        val byEar = blocks.groupBy { it.first }
+        val remaining = byEar.mapValues { (_, list) -> list.shuffled().toMutableList() }.toMutableMap()
+        val result = mutableListOf<TestBlock.Tone>()
+        var lastEar: Ear? = null
+        var sameEarStreak = 0
+
+        while (remaining.values.any { it.isNotEmpty() }) {
+            val availableEars = remaining.filterValues { it.isNotEmpty() }.keys
+            val chosenEar = when {
+                availableEars.size == 1 -> availableEars.first()
+                sameEarStreak >= 2 -> availableEars.first { it != lastEar }
+                else -> availableEars.random()
             }
+            val (ear, freqIdx) = remaining.getValue(chosenEar).removeAt(0)
+            result.add(TestBlock.Tone(ear, freqIdx))
+            sameEarStreak = if (chosenEar == lastEar) sameEarStreak + 1 else 1
+            lastEar = chosenEar
+        }
+        return result
+    }
+
+    /**
+     * کوشش‌های کنترلی را به‌جای انتخاب کاملاً تصادفیِ مستقل (که می‌تواند چند سکوت را کنار هم
+     * قرار دهد)، در بازه‌های تقریباً مساوی از صف پخش می‌کند — یک سکوت در هر بازه، در نقطه‌ای
+     * تصادفی از همان بازه. بلوک اول صف هرگز کوشش کنترلی نیست تا آزمون با یک تن واقعی شروع شود.
+     */
+    private fun insertCatchTrialsSpread(catchTrialCount: Int) {
+        if (catchTrialCount <= 0 || queue.size <= 1) return
+        val segments = catchTrialCount
+        val insertPositions = mutableListOf<Int>()
+        for (s in 0 until segments) {
+            val segStart = (1 + s * (queue.size - 1) / segments)
+            val segEnd = (1 + (s + 1) * (queue.size - 1) / segments).coerceAtMost(queue.size)
+            val pos = if (segEnd > segStart) (segStart until segEnd).random() else segStart.coerceAtMost(queue.size)
+            insertPositions.add(pos)
+        }
+        // درج از انتها به ابتدا تا اندیس‌های محاسبه‌شده برای بازه‌های قبلی جابه‌جا نشوند
+        insertPositions.sortedDescending().forEach { pos ->
+            queue.add(pos.coerceIn(0, queue.size), TestBlock.Catch)
         }
     }
 
@@ -137,9 +185,12 @@ class HearingTestController(
                     finalizeThreshold(currentLevel)
                     return
                 }
-                // بازگشت به حالت پرصداتر و صعود دوباره برای تأیید
-                phase = Phase.AFTER_HEARD
-                currentLevel = (currentLevel + 10f).coerceAtMost(MAX_ATTENUATION)
+                // برای تأیید سریع‌تر (به‌جای بازگشت کامل به سطح بلندتر و نزول دوباره تا همین
+                // سطح که چند کوشش اضافه می‌طلبید)، بلافاصله همین سطح یک‌بار دیگر ارائه می‌شود؛
+                // معیار «دو پاسخ مثبت» همچنان رعایت می‌شود، فقط با کوشش‌های کمتر. این نسخهٔ
+                // ساده‌شدهٔ روش هیوز-وستلیک، در پژوهش‌های اودیومتری خودکار، دقتی مشابه با
+                // زمان آزمون به‌مراتب کوتاه‌تر نشان داده است.
+                // phase و currentLevel بدون تغییر می‌مانند تا presentTone() دوباره همین‌جا اجرا شود.
             } else {
                 if (currentLevel <= MIN_ATTENUATION) {
                     // حتی در بلندترین حالت هم پاسخی دریافت نشد

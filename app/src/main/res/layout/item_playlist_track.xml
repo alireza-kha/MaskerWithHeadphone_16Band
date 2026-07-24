@@ -28,6 +28,16 @@
             android:background="#B3000000"
             android:visibility="gone" />
 
+        <CheckBox
+            android:id="@+id/trackSelectCheckbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:background="#B3000000"
+            android:button="@android:drawable/checkbox_on_background"
+            android:scaleX="0.9"
+            android:scaleY="0.9" />
+
     </FrameLayout>
 
     <TextView
