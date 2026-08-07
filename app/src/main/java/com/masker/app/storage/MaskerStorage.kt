@@ -32,6 +32,7 @@ object MaskerStorage {
     const val SUB_HISTORY = "History"
     const val SUB_SOUNDS = "Sounds"
     const val SUB_PLAYLIST = "Playlist"
+    const val SUB_REPORTS = "Reports"
 
     fun hasPermission(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -91,4 +92,5 @@ object MaskerStorage {
     fun historyDir(context: Context): File = subDir(context, SUB_HISTORY)
     fun soundsDir(context: Context): File = subDir(context, SUB_SOUNDS)
     fun playlistDir(context: Context): File = subDir(context, SUB_PLAYLIST)
+    fun reportsDir(context: Context): File = subDir(context, SUB_REPORTS)
 }

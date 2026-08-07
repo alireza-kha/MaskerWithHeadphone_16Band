@@ -57,9 +57,11 @@ class HearingAidEngine {
     @Volatile
     var rightVolume: Float = 1.0f
 
-    /** بهره کلی تقویت ورودی میکروفون؛ شبیه چرخ‌دنده «صدای سمعک» */
+    /** بهره کلی تقویت ورودی میکروفون؛ شبیه چرخ‌دنده «صدای سمعک». مقدار پیش‌فرض عمداً روی
+     *  بهره یک‌به‌یک (بدون تقویت اضافه) است تا در اولین استفاده، احتمال زوزه بازخورد کمتر شود؛
+     *  کاربر می‌تواند بعداً خودش افزایش دهد. */
     @Volatile
-    var masterGain: Float = 1.5f
+    var masterGain: Float = 1.0f
         set(value) {
             field = value.coerceIn(MIN_MASTER_GAIN, MAX_MASTER_GAIN)
         }
@@ -273,8 +275,15 @@ class HearingAidEngine {
         )
     }
 
+    /**
+     * محدودکننده نرم (soft limiter) با تابع tanh به‌جای برش سخت دیجیتال: کلیپ سخد صدایی شبیه
+     * بوق/بریدگی خشن تولید می‌کند (دقیقاً همان علامتی که در صورت تقویت بیش‌ازحد یا بازخورد
+     * صوتی گزارش می‌شود)، در حالی‌که tanh نزدیک سقف صدا را به‌آرامی فشرده می‌کند و اگر بازخورد
+     * صوتی (مثلاً تست بدون هدفون) رخ دهد، شدتش را هم کاهش می‌دهد.
+     */
     private fun clampToShort(value: Double): Short {
-        val scaled = (value * 32767.0).toInt()
+        val limited = kotlin.math.tanh(value)
+        val scaled = (limited * 32767.0).toInt()
         return scaled.coerceIn(-32768, 32767).toShort()
     }
 }

@@ -62,17 +62,6 @@ class PlaylistPlaybackService : Service() {
         engine.onError = { playNextInternal() }
         mediaSession = MediaSessionCompat(this, "MaskerPlaylistSession")
         mediaSession.isActive = true
-        // در اندروید ۱۱ به بالا، ویجت کنترل پخش رسانه در پرده اعلان‌ها (که خودِ سیستم رسم
-        // می‌کند) دکمه‌های قبلی/بعدی/پخش‌-مکث/توقف را با صدا زدن مستقیم Callback جلسه رسانه
-        // اجرا می‌کند، نه با فراخوانی PendingIntent اکشن‌های اعلان. بدون این Callback، آن
-        // دکمه‌ها در پرده اعلان‌ها هیچ واکنشی نداشتند.
-        mediaSession.setCallback(object : MediaSessionCompat.Callback() {
-            override fun onPlay() = performPauseResume()
-            override fun onPause() = performPauseResume()
-            override fun onSkipToNext() = playNextInternal()
-            override fun onSkipToPrevious() = playPrevInternal()
-            override fun onStop() = performStop()
-        })
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -80,32 +69,26 @@ class PlaylistPlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PLAY_INDEX -> playIndex(intent.getIntExtra(EXTRA_INDEX, -1))
-            ACTION_PAUSE_RESUME -> performPauseResume()
+            ACTION_PAUSE_RESUME -> {
+                if (engine.isPaused) engine.resume() else engine.pause()
+                if (engine.isPlaying) {
+                    startForeground(NOTIFICATION_ID, buildNotification())
+                }
+                onStateChanged?.invoke()
+            }
             ACTION_NEXT -> playNextInternal()
             ACTION_PREV -> playPrevInternal()
             ACTION_STOP -> {
-                performStop()
+                engine.stop()
+                currentIndex = -1
+                updateMediaSessionState()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                onStateChanged?.invoke()
                 return START_NOT_STICKY
             }
         }
         return START_STICKY
-    }
-
-    private fun performPauseResume() {
-        if (engine.isPaused) engine.resume() else engine.pause()
-        if (engine.isPlaying) {
-            startForeground(NOTIFICATION_ID, buildNotification())
-        }
-        onStateChanged?.invoke()
-    }
-
-    private fun performStop() {
-        engine.stop()
-        currentIndex = -1
-        updateMediaSessionState()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-        onStateChanged?.invoke()
     }
 
     private fun playIndex(index: Int) {

@@ -3,6 +3,8 @@ package com.masker.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +16,7 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -47,8 +50,10 @@ import com.masker.app.report.TinnitusScoreDialog
 import com.masker.app.schedule.ScheduleActivity
 import com.masker.app.service.PlaybackService
 import com.masker.app.storage.MaskerStorage
+import com.masker.app.tinnitus.TinnitusLoudnessExcelExporter
+import com.masker.app.tinnitus.TinnitusLoudnessRecord
+import com.masker.app.tinnitus.TinnitusLoudnessStorage
 import com.masker.app.ui.MessageDialog
-import com.masker.app.wearsync.MaskerWearSyncManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -175,9 +180,6 @@ class MainActivity : AppCompatActivity() {
         updateLastAudiogramSummary()
         refreshPlaylistUI()
         playlistUiHandler.post(playlistUiUpdater)
-        // هر بار اپ به فورگراند برمی‌گردد (مثلاً پس از ثبت یک آزمون اودیوگرام جدید)، آخرین
-        // وضعیت ماسکر نویزی را برای اپ ساعت هوشمند (در صورت اتصال) به‌روزرسانی می‌کند
-        MaskerWearSyncManager.pushStateDebounced(this)
     }
 
     override fun onPause() {
@@ -250,7 +252,7 @@ class MainActivity : AppCompatActivity() {
             PlaylistPlaybackService.engine.setLeftEqBandGain(band, leftGain)
         }
 
-        HearingAidService.engine.masterGain = SettingsStorage.loadHearingAidMasterGain(this, 1.5f)
+        HearingAidService.engine.masterGain = SettingsStorage.loadHearingAidMasterGain(this, 1.0f)
         HearingAidService.engine.leftVolume = SettingsStorage.loadHearingAidLeftVolume(this, 1.0f)
         HearingAidService.engine.rightVolume = SettingsStorage.loadHearingAidRightVolume(this, 1.0f)
         for (band in 0 until HearingAidEngine.EQ_BAND_COUNT) {
@@ -315,7 +317,6 @@ class MainActivity : AppCompatActivity() {
                     bandGains[i] = value
                     PlaybackService.noiseEngine.bandGains[i] = value
                     SettingsStorage.saveBandGain(this@MainActivity, i, value)
-                    MaskerWearSyncManager.pushStateDebounced(this@MainActivity)
 
                     isUpdatingProgrammatically = true
                     val currentText = rowBinding.bandEditText.text?.toString()
@@ -342,7 +343,6 @@ class MainActivity : AppCompatActivity() {
                     bandGains[i] = value
                     PlaybackService.noiseEngine.bandGains[i] = value
                     SettingsStorage.saveBandGain(this@MainActivity, i, value)
-                    MaskerWearSyncManager.pushStateDebounced(this@MainActivity)
 
                     isUpdatingProgrammatically = true
                     rowBinding.bandSeekBar.progress = clamped
@@ -361,7 +361,6 @@ class MainActivity : AppCompatActivity() {
             masterVolume = value
             PlaybackService.noiseEngine.masterVolume = value
             SettingsStorage.saveMasterVolume(this, value)
-            MaskerWearSyncManager.pushStateDebounced(this)
         })
 
         binding.leftVolumeSeekBar.progress = (leftVolume * 100).toInt()
@@ -369,7 +368,6 @@ class MainActivity : AppCompatActivity() {
             leftVolume = value
             PlaybackService.noiseEngine.leftVolume = value
             SettingsStorage.saveLeftVolume(this, value)
-            MaskerWearSyncManager.pushStateDebounced(this)
         })
 
         binding.rightVolumeSeekBar.progress = (rightVolume * 100).toInt()
@@ -377,9 +375,92 @@ class MainActivity : AppCompatActivity() {
             rightVolume = value
             PlaybackService.noiseEngine.rightVolume = value
             SettingsStorage.saveRightVolume(this, value)
-            MaskerWearSyncManager.pushStateDebounced(this)
         })
+
+        binding.tinnitusLoudnessButton.setOnClickListener { showTinnitusLoudnessDialog() }
+        binding.tinnitusLoudnessReportButton.setOnClickListener {
+            TinnitusLoudnessExcelExporter.exportAndShare(this, TinnitusLoudnessStorage.loadAllRecords(this))
+        }
     }
+
+    /**
+     * تطبیق بلندی صدای وزوز هر گوش: ماسکر نویزی با تنظیمات فعلی پخش می‌شود، و کاربر ولوم هر
+     * گوش را (نسبت به همین سطح فعلی، بر حسب دسی‌بل) کم یا زیاد می‌کند تا با شدت وزوز همان گوش
+     * برابر شود. عدد نهایی (نه ولوم واقعی ماسکر) به‌همراه تاریخ و ساعت ذخیره می‌شود؛ ولوم واقعی
+     * ماسکر پس از بستن دیالوگ (چه با ذخیره، چه با انصراف) به مقدار قبلی بازمی‌گردد.
+     */
+    private fun showTinnitusLoudnessDialog() {
+        if (isTonalPlaying) {
+            val stopIntent = Intent(this, PlaybackService::class.java).apply { action = PlaybackService.ACTION_STOP }
+            startService(stopIntent)
+            isTonalPlaying = false
+            binding.tonalPlayStopButton.text = getString(R.string.play)
+        }
+        if (!isPlaying) {
+            startPlayback(PlaybackService.MODE_NOISE)
+        }
+
+        val originalLeft = PlaybackService.noiseEngine.leftVolume
+        val originalRight = PlaybackService.noiseEngine.rightVolume
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_tinnitus_loudness, null)
+        val rightSeekBar = dialogView.findViewById<SeekBar>(R.id.tinnitusRightSeekBar)
+        val leftSeekBar = dialogView.findViewById<SeekBar>(R.id.tinnitusLeftSeekBar)
+        val rightValueText = dialogView.findViewById<TextView>(R.id.tinnitusRightValueText)
+        val leftValueText = dialogView.findViewById<TextView>(R.id.tinnitusLeftValueText)
+
+        fun applyRight(progress: Int) {
+            val db = -progress
+            rightValueText.text = getString(R.string.tinnitus_loudness_value_format, db)
+            PlaybackService.noiseEngine.rightVolume = (originalRight * dbToLinearGain(db.toFloat())).coerceIn(0f, 1f)
+        }
+        fun applyLeft(progress: Int) {
+            val db = -progress
+            leftValueText.text = getString(R.string.tinnitus_loudness_value_format, db)
+            PlaybackService.noiseEngine.leftVolume = (originalLeft * dbToLinearGain(db.toFloat())).coerceIn(0f, 1f)
+        }
+        applyRight(0)
+        applyLeft(0)
+
+        rightSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) applyRight(progress)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        leftSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) applyLeft(progress)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.tinnitus_loudness_button)
+            .setView(dialogView)
+            .setCancelable(true)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val record = TinnitusLoudnessRecord(
+                    timestampMillis = System.currentTimeMillis(),
+                    rightDb = -rightSeekBar.progress.toFloat(),
+                    leftDb = -leftSeekBar.progress.toFloat()
+                )
+                TinnitusLoudnessStorage.saveRecord(this, record)
+                MessageDialog.show(this, R.string.tinnitus_loudness_saved_toast)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+
+        dialog.setOnDismissListener {
+            PlaybackService.noiseEngine.leftVolume = originalLeft
+            PlaybackService.noiseEngine.rightVolume = originalRight
+        }
+        dialog.show()
+    }
+
+    private fun dbToLinearGain(db: Float): Float = Math.pow(10.0, (db / 20.0)).toFloat()
 
     // ==================== حذف فرکانس وزوز (Notch) ====================
 
@@ -404,7 +485,6 @@ class MainActivity : AppCompatActivity() {
                 SettingsStorage.saveNotchSettings(this, false, notchFrequencyHz, notchWidthOctaves)
                 binding.toggleNotchButton.text = getString(R.string.enable_notch)
                 updateNotchStatusText()
-                MaskerWearSyncManager.pushStateDebounced(this)
             } else {
                 val freqText = binding.notchFrequencyEditText.text?.toString()?.trim().orEmpty()
                 val freq = freqText.toDoubleOrNull()
@@ -422,7 +502,6 @@ class MainActivity : AppCompatActivity() {
                 SettingsStorage.saveNotchSettings(this, true, freq, width)
                 binding.toggleNotchButton.text = getString(R.string.disable_notch)
                 updateNotchStatusText()
-                MaskerWearSyncManager.pushStateDebounced(this)
             }
         }
 
@@ -490,7 +569,6 @@ class MainActivity : AppCompatActivity() {
                 // موتور صدا و حافظه ذخیره‌سازی را هم به‌روزرسانی می‌کند (از طریق TextWatcher موجود)
                 bandRowBindings[i].bandEditText.setText(progress.toString())
             }
-            MaskerWearSyncManager.pushStateDebounced(this)
 
             MessageDialog.show(this, R.string.optimize_applied_toast)
         }
@@ -511,7 +589,6 @@ class MainActivity : AppCompatActivity() {
                 PlaybackService.noiseEngine.modulationDepth = modulationDepth
                 SettingsStorage.saveModulationSettings(this@MainActivity, modulationEnabled, modulationDepth)
                 updateModulationStatusText()
-                MaskerWearSyncManager.pushStateDebounced(this@MainActivity)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -525,7 +602,6 @@ class MainActivity : AppCompatActivity() {
                 if (modulationEnabled) R.string.disable_modulation else R.string.enable_modulation
             )
             updateModulationStatusText()
-            MaskerWearSyncManager.pushStateDebounced(this)
         }
     }
 
@@ -1241,7 +1317,7 @@ class MainActivity : AppCompatActivity() {
                 if (hasPermission) {
                     startHearingAid()
                 } else {
-                    requestMicPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    showMicPermissionRationale()
                 }
             }
         }
@@ -1277,7 +1353,34 @@ class MainActivity : AppCompatActivity() {
         setupHearingAidEqualizer()
     }
 
+    /**
+     * پیش از نمایش دیالوگ سیستمی درخواست مجوز میکروفون، دلیل نیاز به این مجوز را به‌صراحت به
+     * کاربر توضیح می‌دهد (چون میکروفون فقط برای پخش بلادرنگ در قابلیت سمعک استفاده می‌شود، هیچ
+     * صدایی ذخیره/ارسال نمی‌شود) — هم شفافیت بیشتری برای کاربر دارد، هم برای بررسی بازارهای
+     * اپلیکیشن (که معمولاً توضیح مجوزهای حساس را می‌خواهند) مفید است.
+     */
+    private fun showMicPermissionRationale() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.hearing_aid_permission_rationale_title)
+            .setMessage(R.string.hearing_aid_permission_rationale_message)
+            .setCancelable(true)
+            .setPositiveButton(R.string.continue_action) { _, _ ->
+                requestMicPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
     private fun startHearingAid() {
+        // بدون هدفون، میکروفون صدای همان خروجی سمعک را از بلندگوی گوشی دوباره می‌گیرد و باعث
+        // زوزه بازخورد صوتی (Larsen effect) می‌شود — دقیقاً همان «بوق بلند» که به‌جای فعال شدن
+        // سمعک شنیده می‌شود. برای جلوگیری از این مشکل، پیش از روشن کردن سمعک بررسی می‌شود که
+        // هدفون (سیمی یا بلوتوث) واقعاً وصل باشد.
+        if (!isHeadphonesConnected()) {
+            MessageDialog.show(this, R.string.hearing_aid_headphones_required)
+            return
+        }
+
         val intent = Intent(this, HearingAidService::class.java).apply {
             action = HearingAidService.ACTION_START
         }
@@ -1291,6 +1394,19 @@ class MainActivity : AppCompatActivity() {
         // بلافاصله در متن کلید نشان می‌دهیم، نه با خواندن engine.isRunning.
         hearingAidUiOn = true
         updateHearingAidPlayButtonLabel()
+    }
+
+    private fun isHeadphonesConnected(): Boolean {
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager ?: return false
+        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        return devices.any { device ->
+            device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                device.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && device.type == AudioDeviceInfo.TYPE_BLE_HEADSET)
+        }
     }
 
     private fun stopHearingAid() {
