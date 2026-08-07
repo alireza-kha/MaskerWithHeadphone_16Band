@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <TextView
+        android:id="@+id/eqBandLabel"
+        android:layout_width="56dp"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        tools:text="1k" />
+
+    <SeekBar
+        android:id="@+id/eqBandSeekBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:max="30" />
+
+    <TextView
+        android:id="@+id/eqBandValueText"
+        android:layout_width="52dp"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:textSize="12sp"
+        tools:text="+3dB" />
+
+</LinearLayout>

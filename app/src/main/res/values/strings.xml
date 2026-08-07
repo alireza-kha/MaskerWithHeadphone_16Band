@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ماسکر</string>
+    <string name="subtitle">تولید صدای ماسکر شنوایی با ۱۶ باند فرکانسی قابل تنظیم</string>
+    <string name="bands_title">باندهای فرکانسی نویز</string>
+    <string name="master_volume">ولوم کلی</string>
+    <string name="per_ear_title">تنظیم جداگانه هر گوش</string>
+    <string name="left_ear">گوش چپ</string>
+    <string name="right_ear">گوش راست</string>
+    <string name="play">پخش</string>
+    <string name="pause">مکث</string>
+    <string name="stop">توقف</string>
+    <string name="save_sound">ذخیره صدا</string>
+    <string name="open_schedule">زمان‌بندی پخش</string>
+
+    <!-- ==================== اندازه‌گیری بلندی صدای وزوز ==================== -->
+    <string name="tinnitus_loudness_button">تشخیص میزان بلندی صدای وزوز</string>
+    <string name="tinnitus_loudness_report_button">دریافت گزارش اکسل سوابق بلندی وزوز</string>
+    <string name="tinnitus_loudness_dialog_message">صدای ماسکر با تنظیمات فعلی در حال پخش است. ولوم هر گوش را (نسبت به همین سطح فعلی) کم یا زیاد کنید تا با شدت وزوز همان گوش یکی شود، سپس «ذخیره» را بزنید.</string>
+    <string name="tinnitus_loudness_value_format">%1$d دسی‌بل نسبت به سطح فعلی</string>
+    <string name="tinnitus_loudness_saved_toast">میزان بلندی وزوز هر گوش با تاریخ و ساعت فعلی ذخیره شد</string>
+    <string name="tinnitus_loudness_report_empty">هنوز هیچ اندازه‌گیری بلندی وزوزی ثبت نشده است</string>
+
+    <string name="schedule_title">زمان‌بندی پخش</string>
+    <string name="schedule_edit_title">ویرایش زمان‌بندی</string>
+    <string name="add_schedule">افزودن زمان‌بندی جدید</string>
+    <string name="start_time">زمان شروع</string>
+    <string name="end_time">زمان پایان</string>
+    <string name="days_of_week">روزهای فعال</string>
+    <string name="schedule_label">عنوان (اختیاری)</string>
+    <string name="save">ذخیره</string>
+    <string name="delete">حذف</string>
+    <string name="cancel">انصراف</string>
+
+    <string name="day_sat">شنبه</string>
+    <string name="day_sun">یکشنبه</string>
+    <string name="day_mon">دوشنبه</string>
+    <string name="day_tue">سه‌شنبه</string>
+    <string name="day_wed">چهارشنبه</string>
+    <string name="day_thu">پنجشنبه</string>
+    <string name="day_fri">جمعه</string>
+
+    <string name="save_duration_title">مدت زمان فایل ذخیره‌شده را انتخاب کنید</string>
+    <string name="save_success">فایل صدا با موفقیت ذخیره شد</string>
+    <string name="save_failed">ذخیره فایل صدا با خطا مواجه شد</string>
+    <string name="saving_in_progress">در حال تولید فایل صدا…</string>
+
+    <string name="notification_channel_name">پخش صدای ماسکر</string>
+    <string name="notification_title">ماسکر در حال پخش است</string>
+    <string name="notification_text">برای توقف ضربه بزنید</string>
+
+    <string name="schedule_empty">هنوز زمان‌بندی‌ای ثبت نشده است</string>
+
+    <string name="help">راهنما</string>
+    <string name="help_title">راهنمای استفاده از ماسکر</string>
+
+    <string-array name="help_steps">
+        <item>با استفاده از ۱۶ ترکبار پایین صفحه، شدت هر یک از باندهای فرکانسی نویز را از ۰ تا ۱۰۰ تنظیم کنید. کنار هر ترکبار یک باکس عددی هم قرار دارد که می‌توانید عدد دقیق را مستقیماً در آن تایپ کنید؛ حرکت ترکبار و تایپ عدد به‌طور خودکار با هم هماهنگ می‌شوند.</item>
+        <item>با ترکبار «ولوم کلی» می‌توانید بلندی کلی صدای تولیدشده را کم یا زیاد کنید.</item>
+        <item>با ترکبارهای «گوش چپ» و «گوش راست» می‌توانید شدت صدا را برای هر گوش هدفون به‌طور جداگانه تنظیم کنید.</item>
+        <item>با دکمه «پخش» صدای ماسکر با تنظیمات فعلی پخش می‌شود و با زدن دوباره همان دکمه (که به «توقف» تغییر نام می‌دهد) پخش متوقف می‌شود.</item>
+        <item>با دکمه «ذخیره صدا» می‌توانید صدای تولیدشده با تنظیمات فعلی را برای مدت زمان دلخواه به فایل صوتی WAV تبدیل و روی گوشی ذخیره کنید.</item>
+        <item>از دکمه «زمان‌بندی پخش» برای تعیین ساعت شروع و پایان و روزهای هفته‌ای استفاده کنید که می‌خواهید صدا به‌طور خودکار پخش شود (مثلاً هر شب هنگام خواب).</item>
+        <item>تمام تنظیمات شما (۱۶ باند، ولوم کلی، ولوم چپ و راست) به‌طور خودکار ذخیره می‌شوند؛ با بستن و باز کردن دوباره برنامه، آخرین تنظیمات شما بازیابی خواهند شد.</item>
+        <item>از تب «ماسکر تونال» می‌توانید به‌جای نویز، از تن‌های خالص (سینوسی) در ۱۶ فرکانس استفاده کنید؛ این حالت برای تطبیق دقیق با پرده صدای وزوز گوش مناسب‌تر است و تنظیمات، پخش و ذخیره آن کاملاً مستقل از تب «ماسکر نویزی» است.</item>
+        <item>در تب «اودیوگرام» می‌توانید یک آزمون شنوایی با هدفون انجام دهید. صدا به‌طور پیوسته پخش می‌شود؛ به محض شنیدن، دکمه «می‌شنوم» و در غیر این صورت (وقتی مطمئن شدید صدایی نیست) دکمه «نمی‌شنوم» را بزنید. پس از پایان آزمون، می‌توانید بررسی «اثر سایه» (Cross-hearing) را هم با نویز ماسک‌کننده در گوش مقابل انجام دهید. نتیجه به‌صورت نمودار قابل ذخیره و اشتراک‌گذاری است، اما جایگزین سنجش شنوایی توسط متخصص نیست.</item>
+        <item>با دکمه «مشاهده سوابق قبلی» در صفحه اودیوگرام می‌توانید با انتخاب نام هر فرد، آخرین نتیجه آزمون ثبت‌شده او را دوباره ببینید، ذخیره یا اشتراک‌گذاری کنید — تمام آزمون‌های قبلی هر فرد در برنامه نگه‌داری می‌شوند.</item>
+        <item>در تب «ماسکر نویزی»، بخش «حذف فرکانس وزوز» به شما امکان می‌دهد فرکانس وزوز گوش خود را وارد کنید (یا آن را از نتیجه آزمون اودیوگرام دریافت کنید) تا آن باند دقیقاً از نویز حذف شود؛ این قابلیت بر پایه پژوهش‌های «نویز notch‌شده» (Pantev و همکاران) است.</item>
+        <item>در حین انجام آزمون اودیوگرام، با دکمه «توقف موقت آزمون» می‌توانید هر وقت خواستید آزمون را موقتاً متوقف کنید و با دکمه «ادامه آزمون» دقیقاً از همان نقطه ادامه دهید.</item>
+        <item>دکمه «بهینه‌سازی خودکار بر اساس اودیوگرام» در تب «ماسکر نویزی»، شدت هر ۱۶ باند را بر اساس نتیجه آخرین آزمون شنوایی شما تنظیم می‌کند تا نویز بیشتری روی فرکانس‌هایی که در آن‌ها افت شنوایی دارید متمرکز شود؛ این رویکرد در پژوهش‌های اخیر (Cuesta و همکاران، ۲۰۲۲) نتایج بهتری نسبت به نویز یکنواخت نشان داده است.</item>
+        <item>«مدولاسیون دامنه ۱۰ هرتز» یک قابلیت دیگر در تب «ماسکر نویزی» است که بر اساس پژوهش‌های Neff و همکاران (۲۰۱۷)، نوسان ملایم شدت صدا را به‌جای صدای کاملاً ثابت اعمال می‌کند.</item>
+        <item>هر بار که پخش ماسکر (نویزی یا تونال) را با دکمه «توقف» متوقف می‌کنید، از شما نمره ذهنی شدت وزوز هر گوش پرسیده می‌شود؛ درست مثل توقف موقت آزمون اودیوگرام.</item>
+        <item>با دکمه «مشاهده سابقه نمودارهای اودیوگرام» (زیر دکمه «شروع آزمون شنوایی») می‌توانید فهرست همه آزمون‌های ذخیره‌شده را ببینید و با انتخاب هرکدام، همان نمودار را دوباره مشاهده، ذخیره، اشتراک‌گذاری یا حذف کنید.</item>
+        <item>در تب «پلی‌لیست» می‌توانید فایل‌های صوتی دلخواه خود را اضافه و مثل یک پخش‌کننده موسیقی کامل پخش کنید: پخش/مکث/توقف، قبلی/بعدی، تغییر سرعت پخش، اکولایزر گرافیکی چندباندهٔ قابل تنظیم، و امکان حذف کامل یک فرکانس مشخص (Notch) از موسیقی در حال پخش.</item>
+        <item>تمام سوابق آزمون‌های شنوایی، عکس‌های نمودار، فایل‌های صوتی ذخیره‌شده و پلی‌لیست موسیقی، در پوشه Documents/Masker حافظه گوشی نگه‌داری می‌شوند (نه در حافظه اختصاصی برنامه) تا با حذف نصب یا نصب مجدد برنامه از بین نروند و در باز شدن بعدی دوباره در دسترس باشند. برای این کار لازم است یک‌بار دسترسی «مدیریت همه فایل‌ها» را به برنامه بدهید.</item>
+        <item>با دکمه «پخش تن آزمایشی برای تنظیم ولوم» در صفحه اودیوگرام، یک تن پیوسته پخش می‌شود و می‌توانید با دو دکمه «آرام‌تر»/«بلندتر» ولوم گوشی را به سطح راحت و واضح برسانید؛ همین سطح ولوم تا پایان آزمون ثابت می‌ماند و پس از تأیید، آزمون خودکار شروع می‌شود.</item>
+        <item>در آزمون شنوایی، ترتیب گوش‌ها و فرکانس‌ها تصادفی است و چند «کوشش کنترلی» بدون پخش صدا هم به‌طور تصادفی درج می‌شود؛ این‌ها برای جلوگیری از پاسخ نابه‌جا ناشی از حدس‌زدن الگوی آزمون توسط مغز (به‌جای شنیدن واقعی صدا) طراحی شده‌اند. اگر در نقطه‌ای همین کوشش کنترلی هم پاسخ «شنیدم» بگیرد، آن نقطه در نمودار با یک حلقه نارنجی مشخص می‌شود.</item>
+        <item>پس از پایان آزمون اصلی، برنامه بر پایه معیار بالینی «تضعیف بین‌گوشی» بررسی می‌کند که آیا اختلاف شنوایی دو گوش در هر فرکانس آن‌قدر زیاد هست که نیاز به تأیید با نویز ماسک‌کننده داشته باشد؛ در صورت نیاز، همان‌جا (بدون نیاز به تکرار کل آزمون) فقط همان نقاط با ماسک بازآزموده و در نمودار رسم می‌شوند. جدای از این، باز هم می‌توانید آزمون کامل «اثر سایه» را برای همه فرکانس‌ها انتخاب کنید.</item>
+        <item>تب «سمعک» صدای اطراف را از میکروفون گوشی به‌صورت بلادرنگ دریافت، بر اساس نتیجه اودیوگرام شما در هر گوش جداگانه تقویت، و بلافاصله در هدفون پخش می‌کند — بدون اینکه هیچ صدایی ذخیره یا به‌جایی ارسال شود. مجوز دسترسی به میکروفون فقط برای همین قابلیت اختیاری استفاده می‌شود و تا وقتی خودتان تب «سمعک» را روشن نکنید، میکروفون فعال نمی‌شود. پیش از روشن شدن، برنامه بررسی می‌کند هدفون وصل باشد؛ بدون هدفون، میکروفون صدای بلندگوی گوشی را دوباره می‌گیرد و باعث زوزه بازخورد می‌شود.</item>
+        <item>در تب «ماسکر نویزی»، دکمه «تشخیص میزان بلندی صدای وزوز» صدای ماسکر را با تنظیمات فعلی پخش می‌کند و یک ولوم جداگانه بر حسب دسی‌بل (نسبت به همان سطح فعلی) برای هر گوش نشان می‌دهد؛ آن را کم یا زیاد کنید تا با شدت وزوز همان گوش برابر شود و «ذخیره» را بزنید. عدد هر گوش به‌همراه تاریخ و ساعت ثبت می‌شود، و با دکمه «دریافت گزارش اکسل سوابق بلندی وزوز» می‌توانید از تمام این سوابق یک فایل اکسل بسازید و به‌اشتراک بگذارید.</item>
+    </string-array>
+
+    <string name="developer_title">درباره برنامه‌نویس</string>
+    <string name="developer_name">سید علیرضا خلیفه سلطانی</string>
+    <string name="developer_phone">09023369444</string>
+    <string name="developer_email">Ali_2010ir@yahoo.com</string>
+    <string name="developer_name_line">نام و فامیل: %1$s</string>
+    <string name="developer_phone_line">تلفن موبایل: %1$s</string>
+    <string name="developer_email_line">ایمیل: %1$s</string>
+
+    <string name="tab_noise">ماسکر نویزی</string>
+    <string name="tab_scroll_left">اسکرول تب‌ها به چپ</string>
+    <string name="tab_scroll_right">اسکرول تب‌ها به راست</string>
+    <string name="tab_tonal">ماسکر تونال</string>
+    <string name="tonal_description">در ماسکر تونال، به‌جای نویز فیلترشده، از تن‌های خالص (موج سینوسی) در ۱۶ فرکانس استفاده می‌شود. می‌توانید یک یا چند فرکانس نزدیک به پرده صدای وزوز گوش خود را انتخاب و شدت آن را تنظیم کنید.</string>
+    <string name="tones_title">فرکانس‌های تن (هرتز)</string>
+
+    <string name="tab_audiogram">اودیوگرام</string>
+    <string name="audiogram_tab_description">با این آزمون می‌توانید یک نمودار شنوایی (اودیوگرام) اولیه از هر دو گوش خود، با استفاده از هدفون، تهیه کنید. این آزمون بر پایه روش علمی «هیوز-وستلیک» (Hughson-Westlake) طراحی شده که روش استاندارد رایج برای یافتن آستانه شنوایی در سنجش‌های شنوایی است.</string>
+    <string name="start_hearing_test">شروع آزمون شنوایی</string>
+    <string name="last_audiogram_format">آخرین آزمون: %1$s</string>
+
+    <string name="audiogram_title">آزمون شنوایی (اودیوگرام)</string>
+    <string name="audiogram_intro_text">پیش از شروع:\n۱. حتماً از هدفون استفاده کنید (نه بلندگوی گوشی).\n۲. در محیطی ساکت و بدون سروصدا قرار بگیرید.\n۳. با دکمه زیر یک تن آزمایشی پخش کنید و ولوم گوشی را روی سطحی راحت و قابل‌شنیدن (نه خیلی بلند) تنظیم کنید.\n۴. سپس آزمون را شروع کنید؛ تن‌هایی در ۶ فرکانس استاندارد (۲۵۰ تا ۸۰۰۰ هرتز) برای هر دو گوش پخش می‌شود و باید به محض شنیدن هر تن، دکمه «شنیدم» را بزنید. اگر صدایی نشنیدید، کاری نکنید تا خودکار به مرحله بعد برود.\n۵. ترتیب گوش‌ها و فرکانس‌ها تصادفی است (نه ابتدا یک گوش کامل و بعد گوش دیگر) و گاهی هم اصلاً صدایی پخش نمی‌شود؛ این عمدی است و برای دقیق‌تر شدن نتیجه (جلوگیری از پاسخ‌دادن بر اساس حدسِ الگو به‌جای شنیدن واقعی) طراحی شده است.</string>
+    <string name="audiogram_disclaimer">توجه: این آزمون یک غربالگری شخصی و غیرکالیبره است (وابسته به مدل هدفون، تنظیم ولوم و نویز محیط) و جایگزین سنجش شنوایی بالینی توسط متخصص شنوایی‌شناسی نیست. نتایج را صرفاً برای مقایسه و پیگیری روند شخصی خود در طول زمان در نظر بگیرید.</string>
+    <string name="play_calibration_tone">پخش تن آزمایشی برای تنظیم ولوم</string>
+    <string name="volume_calibration_title">تنظیم خودکار ولوم</string>
+    <string name="volume_calibration_message">یک تن پیوسته پخش می‌شود. با دکمه‌های زیر، ولوم گوشی را طوری تنظیم کنید که صدا واضح و راحت شنیده شود (نه خیلی آرام، نه خیلی بلند)، سپس «مناسب است، شروع آزمون» را بزنید. همین سطح ولوم تا پایان آزمون ثابت می‌ماند.</string>
+    <string name="volume_calibration_level_format">سطح فعلی ولوم: %1$d٪</string>
+    <string name="volume_calibration_quieter">آرام‌تر</string>
+    <string name="volume_calibration_louder">بلندتر</string>
+    <string name="volume_calibration_done">مناسب است، شروع آزمون</string>
+    <string name="start_test">شروع آزمون</string>
+    <string name="audiogram_test_instruction">صدا به‌صورت بیپ‌بیپ پخش می‌شود. اگر شنیدید، دکمه «می‌شنوم» و اگر مطمئنید صدایی نیست، دکمه «نمی‌شنوم» را بزنید.</string>
+    <string name="i_heard_it">شنیدم</string>
+    <string name="audiogram_progress_format">%1$s — فرکانس %2$d از %3$d (%4$s)</string>
+    <string name="audiogram_result_title">نتیجه آزمون</string>
+    <string name="audiogram_legend">دایره قرمز = گوش راست، ضربدر آبی = گوش چپ. هرچه نقطه بالاتر باشد یعنی آن فرکانس در سطح صدای آرام‌تری هم شنیده شده (شنوایی نسبی بهتر).</string>
+    <string name="share">اشتراک‌گذاری</string>
+    <string name="retake_test">تکرار آزمون</string>
+    <string name="pause_test">توقف موقت آزمون</string>
+    <string name="resume_test">ادامه آزمون</string>
+    <string name="test_paused_status">آزمون موقتاً متوقف شده است</string>
+
+    <string name="i_hear_it">می‌شنوم</string>
+    <string name="i_dont_hear_it">نمی‌شنوم</string>
+    <string name="masking_phase_badge">مرحله بررسی اثر سایه (با نویز ماسک‌کننده در گوش مقابل)</string>
+
+    <string name="yes">بله</string>
+    <string name="no">خیر</string>
+    <string name="cross_hearing_dialog_title">بررسی اثر سایه (Cross-hearing)</string>
+    <string name="cross_hearing_dialog_message">اگر در نقطه‌ای اختلاف زیادی بین دو گوش دیده شد، همین الان به‌طور خودکار همان نقطه با نویز ماسک‌کننده بررسی و در نمودار رسم شد. آیا علاوه بر آن، مایلید آزمون کامل «اثر سایه» را هم برای همه فرکانس‌های هر دو گوش، این‌بار با پخش نویز ماسک‌کننده در گوش مقابل، انجام دهید؟ این کار به تشخیص دقیق‌تر اینکه صدا واقعاً توسط همان گوش شنیده شده (نه گوش مقابل) کمک می‌کند و روش استانداردی در سنجش‌های شنوایی بالینی است. حدود ۲ تا ۳ دقیقه دیگر زمان می‌برد.</string>
+
+    <string name="audiogram_legend_with_masked">دایره قرمز = گوش راست (بدون ماسک)، ضربدر آبی = گوش چپ (بدون ماسک)، مثلث نارنجی = گوش راست (با ماسک)، مربع بنفش = گوش چپ (با ماسک — یا فقط چند نقطه که بررسی خودکار لازم داشتند، یا آزمون کامل اثر سایه). هرچه نقطه بالاتر باشد یعنی آن فرکانس در سطح صدای آرام‌تری هم شنیده شده (شنوایی نسبی بهتر).</string>
+    <string name="audiogram_legend_unreliable">حلقه توخالی نارنجی دور یک نقطه: بلافاصله پیش از آزمودن آن نقطه، یک کوشش کنترلی بدون صدا هم پاسخ «شنیدم» گرفت؛ ممکن است آستانه این نقطه کاملاً قابل‌اعتماد نباشد و بهتر است بعداً دوباره آزموده شود.</string>
+
+    <string name="view_history">جست‌وجوی سابقه قبلی</string>
+    <string name="history_title">سوابق آزمون‌های ذخیره‌شده</string>
+    <string name="search_name_hint">جست‌وجو بر اساس نام</string>
+    <string name="history_empty">هنوز هیچ آزمونی ذخیره نشده است</string>
+    <string name="patient_meta_format">سن: %1$d — آخرین آزمون: %2$s — تعداد آزمون‌ها: %3$d</string>
+    <string name="history_loaded_toast">اطلاعات %1$s بارگذاری شد؛ آماده برای آزمون جدید</string>
+
+    <string name="submit">ثبت</string>
+    <string name="skip">رد کردن</string>
+    <string name="ok">تأیید</string>
+    <string name="tinnitus_score_dialog_title">میزان آزار وزوز گوش</string>
+    <string name="tinnitus_score_dialog_message">همین الان، به وزوز هر گوش چه نمره‌ای از ۰ (اصلاً آزاردهنده نیست) تا ۱۰ (شدیدترین حالت) می‌دهید؟</string>
+    <string name="tinnitus_score_hint">۰ تا ۱۰</string>
+    <string name="report_sent_message">اطلاعات جهت بررسی‌های آزمایشگاهی و بهبود نرم‌افزار ارسال شد و محرمانه نزد سازنده خواهد ماند</string>
+    <string name="report_queued_message">اینترنت در دسترس نبود؛ اطلاعات ذخیره شد و در اولین باز شدن بعدی برنامه با اینترنت، خودکار ارسال خواهد شد</string>
+    <string name="report_send_failed_message">اینترنت وصل بود ولی ارسال گزارش ناموفق بود؛ اطلاعات ذخیره شد و در باز شدن بعدی برنامه دوباره تلاش می‌شود</string>
+    <string name="report_not_configured_message">آدرس مقصد گزارش هنوز در local.properties تنظیم نشده؛ اطلاعات فقط به‌صورت محلی ذخیره شد (به README پروژه مراجعه کنید)</string>
+
+    <string name="patient_name_hint">نام و نام خانوادگی</string>
+    <string name="patient_age_hint">سن</string>
+    <string name="patient_name_required">لطفاً نام و نام خانوادگی را وارد کنید</string>
+    <string name="patient_age_required">لطفاً یک سن معتبر وارد کنید</string>
+    <string name="patient_info_format">نام: %1$s — سن: %2$s سال\nتاریخ آزمون: %3$s (شمسی) — %4$s (میلادی)</string>
+
+    <string name="notch_title">حذف فرکانس وزوز از نویز (Notch)</string>
+    <string name="notch_description">بر پایه پژوهش‌های «نویز notch‌شده» (Pantev و همکاران، ۲۰۱۲): با حذف یک باند باریک دقیقاً روی فرکانس وزوز گوش شما از نویز، ممکن است ادراک وزوز کاهش یابد. توجه: شواهد علمی برای اثر بلندمدت این روش هنوز قطعی نیست؛ آن را صرفاً یک گزینه آزمایشی برای امتحان کردن در نظر بگیرید.</string>
+    <string name="notch_frequency_hint">فرکانس وزوز (هرتز)</string>
+    <string name="notch_from_audiogram">دریافت از اودیوگرام</string>
+    <string name="notch_width_label">پهنای باند حذف‌شده</string>
+    <string name="enable_notch">فعال‌سازی حذف فرکانس</string>
+    <string name="disable_notch">غیرفعال‌سازی حذف فرکانس</string>
+    <string name="notch_disabled_status">وضعیت: غیرفعال</string>
+    <string name="notch_enabled_status_format">وضعیت: فعال — حذف %1$s هرتز (پهنای %2$s)</string>
+    <string name="notch_no_audiogram">ابتدا باید یک آزمون اودیوگرام کامل انجام دهید (از تب اودیوگرام)</string>
+    <string name="notch_invalid_frequency">لطفاً یک فرکانس معتبر بین ۶۰ تا ۱۶۰۰۰ هرتز وارد کنید</string>
+    <string name="notch_frequency_from_audiogram_toast">فرکانس %1$s هرتز از نتیجه اودیوگرام دریافت شد</string>
+
+    <string name="optimize_description">بر پایه پژوهش‌های اخیر (Cuesta و همکاران، ۲۰۲۲؛ Fernandez-Ledesma و همکاران، ۲۰۲۵): نویزی که با شدت بیشتر روی فرکانس‌هایی که در آن‌ها افت شنوایی دارید متمرکز شده، در مقایسه با نویز یکنواخت ساده، نتایج بهتری در کاهش وزوز نشان داده است. با این دکمه، شدت هر یک از ۱۶ باند به‌طور خودکار بر اساس نتیجه آخرین آزمون اودیوگرام شما تنظیم می‌شود.</string>
+    <string name="optimize_from_audiogram">بهینه‌سازی خودکار بر اساس اودیوگرام</string>
+    <string name="optimize_no_audiogram">ابتدا باید یک آزمون اودیوگرام کامل انجام دهید (از تب اودیوگرام)</string>
+    <string name="optimize_applied_toast">شدت ۱۶ باند بر اساس نتیجه اودیوگرام شما تنظیم شد</string>
+
+    <string name="modulation_title">مدولاسیون دامنه ۱۰ هرتز</string>
+    <string name="modulation_description">بر پایه پژوهش‌های Neff و همکاران (۲۰۱۷) و مطالعه‌ای در سال ۲۰۲۵: نویزی که دامنه آن به‌آرامی و با نرخ ۱۰ هرتز نوسان می‌کند (به‌جای صدای کاملاً ثابت)، سرکوب مؤثرتری روی وزوز نشان داده است.</string>
+    <string name="modulation_depth_label">عمق مدولاسیون</string>
+    <string name="enable_modulation">فعال‌سازی مدولاسیون دامنه</string>
+    <string name="disable_modulation">غیرفعال‌سازی مدولاسیون دامنه</string>
+    <string name="modulation_disabled_status">وضعیت: غیرفعال</string>
+    <string name="modulation_enabled_status_format">وضعیت: فعال — عمق %1$s٪</string>
+
+    <string-array name="notch_width_options">
+        <item>باریک (نیم اکتاو)</item>
+        <item>متوسط (یک اکتاو)</item>
+        <item>پهن (دو اکتاو)</item>
+    </string-array>
+
+    <!-- ==================== ذخیره‌سازی دائمی (Documents/Masker) ==================== -->
+    <string name="storage_permission_title">دسترسی به حافظه برای ذخیره‌سازی دائمی</string>
+    <string name="storage_permission_message">برای اینکه سوابق آزمون‌ها، عکس‌های اودیوگرام، فایل‌های صوتی ذخیره‌شده و پلی‌لیست موسیقی در پوشه Documents/Masker نگه‌داری شوند و با حذف یا نصب مجدد برنامه از بین نروند، لازم است دسترسی «مدیریت همه فایل‌ها» را در تنظیمات به برنامه بدهید. بدون این دسترسی، برنامه همچنان کار می‌کند اما این اطلاعات فقط در حافظه اختصاصی برنامه ذخیره خواهند شد.</string>
+    <string name="storage_permission_grant">دادن دسترسی</string>
+
+    <!-- ==================== مشاهده سابقه نمودارهای اودیوگرام ==================== -->
+    <string name="view_audiogram_gallery">مشاهده سابقه نمودارهای اودیوگرام</string>
+    <string name="audiogram_result_meta_format">سن: %1$d — تاریخ: %2$s</string>
+    <string name="unnamed_patient">بدون نام</string>
+    <string name="delete_audiogram_confirm">این آزمون برای همیشه از سوابق حذف شود؟</string>
+    <string name="select_as_active_audiogram">انتخاب به‌عنوان مبنای تنظیمات برنامه</string>
+    <string name="this_is_active_audiogram">✓ این آزمون هم‌اکنون مبنای فراخوانی تنظیمات در سراسر برنامه است</string>
+
+    <!-- ==================== آزمون مستقیم با ماسک ==================== -->
+    <string name="direct_masked_test">آزمون مستقیم با ماسک (اثر سایه)</string>
+    <string name="masked_test_no_previous_result">ابتدا باید حداقل یک آزمون شنوایی کامل انجام شده باشد</string>
+    <string name="masked_test_options_title">تنظیمات آزمون با ماسک</string>
+    <string name="masked_test_options_message">بر پایه آخرین آزمون ثبت‌شده، فرکانس‌هایی که اختلاف آستانه دو گوششان از مقدار زیر بیشتر باشد، با نویز ماسک‌کننده دوباره آزموده و نتیجه به همان آزمون آخر اضافه می‌شود.</string>
+    <string name="masked_test_threshold_label">فاصله (اختلاف) آستانه دو گوش (دسی‌بل)</string>
+    <string name="masked_test_ear_scope_label">گوش(های) مورد آزمون</string>
+    <string name="masked_test_ear_both">هر دو گوش</string>
+    <string name="masked_test_no_frequencies_flagged">با این تنظیمات، هیچ فرکانسی نیاز به آزمون با ماسک ندارد</string>
+
+    <!-- ==================== تب «پلی‌لیست» ==================== -->
+    <string name="tab_playlist">پلی‌لیست</string>
+    <string name="playlist_tab_description">پلی‌لیست موسیقی شخصی خودتان را بسازید: فایل صوتی اضافه کنید، پخش/مکث/توقف کنید، سرعت پخش را تغییر دهید، از اکولایزر گرافیکی استفاده کنید و در صورت نیاز یک فرکانس مشخص (مثلاً فرکانس وزوز گوش خودتان) را کاملاً از موسیقی حذف کنید.</string>
+    <string name="playlist_add_files">افزودن فایل صوتی به پلی‌لیست</string>
+    <string name="playlist_empty">هنوز هیچ آهنگی به پلی‌لیست اضافه نشده است</string>
+    <string name="playlist_import_failed">افزودن فایل صوتی با خطا مواجه شد</string>
+    <string name="playlist_select_all">انتخاب همه</string>
+    <string name="playlist_delete_selected">حذف</string>
+    <string name="playlist_clear_selection">برداشتن همه انتخاب‌ها</string>
+    <string name="playlist_delete_selected_confirm">%1$d آهنگ انتخاب‌شده برای همیشه حذف شوند؟</string>
+    <string name="playlist_no_selection">ابتدا حداقل یک آهنگ را انتخاب کنید</string>
+    <string name="playlist_long_press_hint">برای انتخاب چند آهنگ (و حذف گروهی)، روی یکی از آن‌ها نگه دارید</string>
+    <string name="playlist_nothing_playing">چیزی در حال پخش نیست</string>
+    <string name="playlist_previous">قبلی</string>
+    <string name="playlist_next">بعدی</string>
+    <string name="playlist_speed_label">سرعت پخش</string>
+    <string name="playlist_speed_format">سرعت پخش: %1$.2f×</string>
+    <string name="playlist_equalizer_title">اکولایزر گرافیکی مستقل هر گوش</string>
+    <string name="playlist_equalizer_description">شدت هر باند فرکانسی موسیقی در حال پخش را برای هر گوش جداگانه کم یا زیاد کنید؛ تغییرات بلافاصله حین پخش اعمال می‌شوند.</string>
+    <string name="playlist_eq_gain_format">%1$+d dB</string>
+    <string name="playlist_eq_from_audiogram">تنظیم خودکار اکولایزر هر گوش از اودیوگرام</string>
+    <string name="playlist_eq_applied_toast">اکولایزر هر گوش بر اساس نتیجه اودیوگرام شما تنظیم شد؛ فرکانس‌هایی که کمتر می‌شنوید با قدرت بیشتری پخش می‌شوند</string>
+    <string name="playlist_notch_title">حذف فرکانس از موسیقی (Notch)</string>
+    <string name="playlist_notch_description">دقیقاً مثل بخش «حذف فرکانس وزوز» در تب ماسکر نویزی: فرکانس وزوز گوش خود را وارد کنید تا همان باند از موسیقی در حال پخش هم حذف شود.</string>
+    <string name="notification_playlist_channel_name">پخش پلی‌لیست موسیقی</string>
+
+    <!-- ==================== تب «سمعک» ==================== -->
+    <string name="tab_hearing_aid">سمعک</string>
+    <string name="hearing_aid_title">شبیه‌ساز سمعک پیشرفته</string>
+    <string name="hearing_aid_description">صدای اطراف را از میکروفون گوشی دریافت، بر اساس نتیجه اودیوگرام شما در هر گوش جداگانه تقویت و پخش می‌کند؛ می‌توانید هم‌زمان با ماسکر نویزی یا تونال هم استفاده کنید.</string>
+    <string name="hearing_aid_headphone_warning">⚠ برای جلوگیری از زوزه بازخورد، حتماً از هدفون استفاده کنید و از اسپیکر گوشی استفاده نکنید. برای کمترین تأخیر صدا، هدفون سیمی نسبت به بلوتوث ترجیح دارد.</string>
+    <string name="hearing_aid_start">روشن کردن سمعک</string>
+    <string name="hearing_aid_stop">خاموش کردن سمعک</string>
+    <string name="hearing_aid_permission_denied">برای استفاده از سمعک، برنامه به مجوز دسترسی به میکروفون نیاز دارد</string>
+    <string name="hearing_aid_headphones_required">ابتدا هدفون (سیمی یا بلوتوث) را به گوشی وصل کنید. بدون هدفون، میکروفون صدای خروجی سمعک را از بلندگوی گوشی دوباره می‌گیرد و باعث زوزه بلند بازخورد صوتی می‌شود.</string>
+    <string name="hearing_aid_permission_rationale_title">چرا این مجوز لازم است؟</string>
+    <string name="hearing_aid_permission_rationale_message">قابلیت «سمعک» صدای اطراف را از میکروفون گوشی به‌صورت بلادرنگ دریافت می‌کند تا آن را (بر اساس نتیجه اودیوگرام شما) تقویت‌شده در هدفون پخش کند. این صدا هرگز ذخیره، ضبط یا به‌جایی ارسال نمی‌شود — فقط لحظه‌ای پردازش و بلافاصله پخش می‌شود. با زدن «متوجه شدم»، مجوز میکروفون را برای همین قابلیت بدهید.</string>
+    <string name="continue_action">متوجه شدم</string>
+    <string name="hearing_aid_gain_label">بهره کلی تقویت صدا</string>
+    <string name="hearing_aid_gain_format">%1$.2f برابر</string>
+    <string name="hearing_aid_equalizer_title">اکولایزر مستقل هر گوش</string>
+    <string name="hearing_aid_equalizer_description">شدت هر باند فرکانسی صدای ورودی میکروفون را برای هر گوش جداگانه کم یا زیاد کنید؛ تغییرات بلافاصله حین کارکرد سمعک اعمال می‌شوند.</string>
+    <string name="hearing_aid_eq_from_audiogram">تنظیم خودکار اکولایزر هر گوش از اودیوگرام</string>
+    <string name="hearing_aid_eq_applied_toast">اکولایزر سمعک بر اساس آزمون اودیوگرام انتخاب‌شده تنظیم شد؛ فرکانس‌هایی که کمتر می‌شنوید با قدرت بیشتری تقویت می‌شوند</string>
+    <string name="hearing_aid_disclaimer">این ویژگی یک شبیه‌سازی نرم‌افزاری است و جایگزین سمعک پزشکی تجویزشده توسط شنوایی‌شناس نیست.</string>
+    <string name="notification_hearing_aid_channel_name">شبیه‌ساز سمعک</string>
+    <string name="notification_hearing_aid_text">سمعک در حال کار است؛ برای مدیریت، اعلان را باز کنید</string>
+</resources>

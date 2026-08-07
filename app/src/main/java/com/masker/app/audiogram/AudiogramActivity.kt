@@ -1,0 +1,585 @@
+package com.masker.app.audiogram
+
+import android.content.Intent
+import android.media.AudioManager
+import android.os.Bundle
+import android.view.View
+import android.widget.Button
+import android.widget.EditText
+import android.widget.RadioGroup
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import com.masker.app.R
+import com.masker.app.databinding.ActivityAudiogramBinding
+import com.masker.app.report.PatientReport
+import com.masker.app.report.ReportQueueStorage
+import com.masker.app.report.ReportSendManager
+import com.masker.app.report.SheetsReportSender
+import com.masker.app.report.TinnitusScoreDialog
+import com.masker.app.ui.MessageDialog
+import java.util.Date
+import kotlin.math.abs
+
+/**
+ * فعالیت آزمون شنوایی (اودیوگرام). سه مرحله دارد: معرفی/تنظیم ولوم، انجام آزمون (پخش
+ * پالسی/بیپ‌بیپ تن و دریافت پاسخ کاربر با دو دکمه «می‌شنوم»/«نمی‌شنوم» برای هر گوش/فرکانس)، و
+ * نمایش نتیجه به‌صورت نمودار قابل ذخیره و اشتراک‌گذاری.
+ *
+ * ترتیب آزمون گوش/فرکانس‌ها تصادفی است (نه ابتدا گوش راست کامل سپس چپ کامل) و چند «کوشش
+ * کنترلی» بدون پخش صدا هم به‌طور تصادفی درج می‌شود — هر دو برای کاهش احتمال پاسخ نابه‌جا
+ * ناشی از حدس‌زدن الگوی آزمون توسط مغز (به‌جای شنیدن واقعی صدا).
+ *
+ * پس از پایان آزمون اصلی، بر پایه معیار بالینی «تضعیف بین‌گوشی» (Interaural Attenuation)،
+ * برنامه به‌طور خودکار بررسی می‌کند که آیا در هر فرکانس نیاز به تأیید با نویز ماسک‌کننده
+ * («اثر سایه» / Cross-hearing) هست یا نه؛ در صورت نیاز، همان‌جا (در همین آزمون اول) فقط آن
+ * نقاط با ماسک بازآزموده می‌شوند. جدای از این، از کاربر پرسیده می‌شود که آیا مایل است آزمون
+ * کامل «اثر سایه» را هم برای همه فرکانس‌ها انجام دهد؛ در صورت تأیید، همان آزمون یک‌بار دیگر
+ * با ماسک تکرار می‌شود. نتایج ماسک‌شده با نمادهای استاندارد اودیولوژی (مثلث/مربع) رسم می‌شوند.
+ *
+ * از صفحه سوابق («جست‌وجوی سابقه») می‌توان نام و سن یک فرد قبلی را انتخاب کرد تا این
+ * اطلاعات در فیلدهای این صفحه از پیش پر شوند و آماده اجرای یک آزمون جدید برای همان فرد باشند.
+ *
+ * هر بار که آزمون موقتاً متوقف شود، نمره ذهنی شدت وزوز هر گوش پرسیده و به‌همراه وضعیت
+ * اودیوگرام و تنظیمات فعلی ماسکر، برای بررسی‌های آزمایشگاهی به سازنده ایمیل می‌شود (یا در
+ * نبود اینترنت، برای ارسال خودکار بعدی ذخیره می‌شود).
+ */
+class AudiogramActivity : AppCompatActivity() {
+
+    companion object {
+        // فرکانس‌های استاندارد غربالگری شنوایی (بر اساس دستورالعمل‌های رایج علمی/بالینی)
+        val TEST_FREQUENCIES = listOf(250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0)
+
+        // سطح نویز ماسک‌کننده در گوش مقابل، هنگام بررسی اثر سایه (مقیاس نسبی ساده‌شده)
+        private const val MASKING_ATTENUATION_DB = 15f
+
+        // معیار بالینی رایج: با هدفون معمولی (Supra-aural)، اگر اختلاف آستانه دو گوش در یک
+        // فرکانس ۴۰ دسی‌بل یا بیشتر باشد، ممکن است پاسخ گوش ضعیف‌تر در واقع نتیجه شنیدن همان
+        // صدا توسط گوش قوی‌تر (تضعیف بین‌گوشی/انتقال درون‌جمجمه‌ای) باشد، نه گوش آزموده؛ در
+        // این حالت باید با نویز ماسک‌کننده در گوش قوی‌تر، آستانه گوش ضعیف‌تر تأیید شود.
+        private const val INTERAURAL_MASKING_THRESHOLD_DB = 40f
+
+        private const val MAIN_PHASE_CATCH_TRIALS = 3
+        private const val FULL_MASKED_PHASE_CATCH_TRIALS = 2
+    }
+
+    private lateinit var binding: ActivityAudiogramBinding
+
+    private var controller: HearingTestController? = null
+    private var isPaused = false
+    private var isMaskedPhase = false
+
+    private var pendingEar: Ear? = null
+    private var pendingFreqHz: Double = 0.0
+    private var pendingAttenuation: Float = 0f
+    private var pendingIsCatchTrial = false
+
+    private var patientName: String = ""
+    private var patientAge: Int = 0
+
+    // انباشت تدریجی نتایج آزمون در حین اجرا (چون ترتیب بلوک‌ها تصادفی است و ممکن است چند
+    // مرحله پشت سر هم اجرا شود: اصلی، بررسی خودکار ماسکینگ، و در صورت انتخاب کاربر، اثر سایه کامل)
+    private var rightThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var leftThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var rightMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var leftMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+    private var hasMaskedData = false
+    private val unreliableRight = mutableSetOf<Int>()
+    private val unreliableLeft = mutableSetOf<Int>()
+
+    // اگر غیر تهی باشد، یعنی در حال انجام آزمون مستقیم با ماسک روی یک سابقه قبلی هستیم؛ نتیجه
+    // نهایی به‌جای ثبت یک رکورد جدید، همین سابقه (با همین timestamp) را به‌روزرسانی می‌کند
+    private var appendToTimestamp: Long? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityAudiogramBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        binding.playCalibrationToneButton.setOnClickListener { startVolumeCalibration() }
+
+        binding.startTestButton.setOnClickListener { startTest() }
+        binding.directMaskedTestButton.setOnClickListener { startDirectMaskedTest() }
+        binding.viewHistoryButton.setOnClickListener {
+            startActivity(Intent(this, AudiogramHistoryActivity::class.java))
+        }
+
+        binding.hearButton.setOnClickListener { onUserResponded(true) }
+        binding.dontHearButton.setOnClickListener { onUserResponded(false) }
+        binding.pauseResumeButton.setOnClickListener { onPauseResumeClicked() }
+
+        binding.retakeTestButton.setOnClickListener { showIntroSection() }
+        binding.saveAudiogramButton.setOnClickListener { saveAudiogramImage(share = false) }
+        binding.shareAudiogramButton.setOnClickListener { saveAudiogramImage(share = true) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val selectedName = AudiogramHistoryActivity.pendingSelectedName
+        if (selectedName != null) {
+            AudiogramHistoryActivity.pendingSelectedName = null
+            val stored = AudiogramStorage.loadLatestResultForPatient(this, selectedName)
+            if (stored != null) {
+                showIntroSection()
+                binding.patientNameEditText.setText(stored.patientName)
+                binding.patientAgeEditText.setText(stored.patientAge.toString())
+                binding.patientNameEditText.setSelection(binding.patientNameEditText.text?.length ?: 0)
+                MessageDialog.show(this, getString(R.string.history_loaded_toast, stored.patientName))
+            }
+        }
+    }
+
+    // ==================== تنظیم خودکار ولوم پیش از آزمون ====================
+
+    /**
+     * پیش از شروع آزمون، ولوم رسانه گوشی را روی یک سطح آغازین معقول (نه خیلی آرام، نه خیلی
+     * بلند) تنظیم می‌کند، یک تن آزمایشی پیوسته پخش می‌کند، و با دو دکمه «آرام‌تر»/«بلندتر» به
+     * کاربر اجازه می‌دهد ولوم را به سطح راحت و واضح برساند. همین ولوم گوشی (نه شدت داخلی تن)
+     * تا پایان همان جلسه آزمون ثابت می‌ماند تا آستانه‌های اندازه‌گیری‌شده نسبت به یک مبنای
+     * ثابت و معنادار باشند — دقیقاً مثل تنظیم سطح مرجع در دستگاه‌های اودیومتری واقعی، پیش از
+     * اندازه‌گیری آستانه‌ها با کاهش تدریجی شدت.
+     */
+    private fun startVolumeCalibration() {
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+        if (audioManager == null) {
+            startTest()
+            return
+        }
+
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        if (maxVolume <= 0) {
+            startTest()
+            return
+        }
+        val startVolume = (maxVolume * 0.4f).toInt().coerceIn(1, maxVolume)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, startVolume, 0)
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_volume_calibration, null)
+        val levelText = dialogView.findViewById<TextView>(R.id.calibrationLevelText)
+
+        fun refreshLevelText() {
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val percent = if (maxVolume > 0) current * 100 / maxVolume else 0
+            levelText.text = getString(R.string.volume_calibration_level_format, percent)
+        }
+        refreshLevelText()
+
+        HearingTestTonePlayer.start(this, Ear.BOTH, 1000.0, attenuationDb = 20f)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.volume_calibration_title)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        dialogView.findViewById<Button>(R.id.calibrationQuieterButton).setOnClickListener {
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (current - 1).coerceAtLeast(0), 0)
+            refreshLevelText()
+        }
+        dialogView.findViewById<Button>(R.id.calibrationLouderButton).setOnClickListener {
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (current + 1).coerceAtMost(maxVolume), 0)
+            refreshLevelText()
+        }
+        dialogView.findViewById<Button>(R.id.calibrationDoneButton).setOnClickListener {
+            // توقف صریح تن کالیبراسیون پیش از شروع آزمون. نکته مهم: هیچ شنونده onDismiss ای
+            // نباید HearingTestTonePlayer.stop() را صدا بزند، چون dismiss() آن را به‌صورت
+            // ناهم‌زمان (با کمی تأخیر) اجرا می‌کند — دقیقاً پس از این‌که startTest() اولین تن
+            // واقعی آزمون را شروع کرده، و همان توقفِ دیرهنگام، آن تن واقعی را (نه تن
+            // کالیبراسیون را) قطع می‌کرد و کاربر هرگز آن را نمی‌شنید. چون این دیالوگ
+            // cancelable=false است، تنها راه بسته‌شدنش همین دکمه است، پس توقف صریح زیر کافی است.
+            HearingTestTonePlayer.stop()
+            dialog.dismiss()
+            startTest()
+        }
+        dialog.show()
+    }
+
+    // ==================== شروع و اجرای آزمون ====================
+
+    private fun startTest() {
+        val name = binding.patientNameEditText.text?.toString()?.trim().orEmpty()
+        if (name.isEmpty()) {
+            MessageDialog.show(this, R.string.patient_name_required)
+            return
+        }
+        val age = binding.patientAgeEditText.text?.toString()?.trim()?.toIntOrNull()
+        if (age == null || age <= 0 || age > 130) {
+            MessageDialog.show(this, R.string.patient_age_required)
+            return
+        }
+        patientName = name
+        patientAge = age
+        resetAccumulators()
+
+        runTestPhase(masked = false, blocks = allEarFrequencyBlocks(), catchTrialCount = MAIN_PHASE_CATCH_TRIALS) {
+            onMainPhaseFinished()
+        }
+    }
+
+    private fun allEarFrequencyBlocks(): List<Pair<Ear, Int>> {
+        return TEST_FREQUENCIES.indices.flatMap { idx -> listOf(Ear.RIGHT to idx, Ear.LEFT to idx) }
+    }
+
+    private fun resetAccumulators() {
+        rightThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        leftThresholds = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        rightMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        leftMasked = FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        hasMaskedData = false
+        unreliableRight.clear()
+        unreliableLeft.clear()
+        appendToTimestamp = null
+    }
+
+    // ==================== آزمون مستقیم با ماسک (بدون آزمون کامل) ====================
+
+    /**
+     * دکمه زیر «شروع آزمون شنوایی»: مستقیماً بر پایه آخرین آزمون ثبت‌شده، فرکانس‌هایی که با
+     * آستانه تضعیف بین‌گوشی انتخابی نیاز به تأیید با ماسک دارند را (فقط در گوش‌(های) انتخابی)
+     * دوباره می‌آزماید و نتیجه را به همان آزمون آخر اضافه می‌کند (نه یک رکورد جدید).
+     */
+    private fun startDirectMaskedTest() {
+        val lastResult = AudiogramStorage.loadLastResult(this)
+        if (lastResult == null) {
+            MessageDialog.show(this, R.string.masked_test_no_previous_result)
+            return
+        }
+        showMaskedTestOptionsDialog(lastResult)
+    }
+
+    private fun showMaskedTestOptionsDialog(baseResult: AudiogramResult) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_masked_test_options, null)
+        val thresholdEditText = dialogView.findViewById<EditText>(R.id.maskedTestThresholdEditText)
+        thresholdEditText.setText(INTERAURAL_MASKING_THRESHOLD_DB.toInt().toString())
+        val earRadioGroup = dialogView.findViewById<RadioGroup>(R.id.maskedTestEarRadioGroup)
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.masked_test_options_title)
+            .setView(dialogView)
+            .setCancelable(true)
+            .setPositiveButton(R.string.start_test) { _, _ ->
+                val threshold = thresholdEditText.text?.toString()?.trim()?.toFloatOrNull()
+                    ?.coerceIn(0f, 80f) ?: INTERAURAL_MASKING_THRESHOLD_DB
+                val earScope = when (earRadioGroup.checkedRadioButtonId) {
+                    R.id.maskedTestEarRightRadio -> Ear.RIGHT
+                    R.id.maskedTestEarLeftRadio -> Ear.LEFT
+                    else -> null
+                }
+                beginDirectMaskedTest(baseResult, threshold, earScope)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun beginDirectMaskedTest(baseResult: AudiogramResult, thresholdDb: Float, earScope: Ear?) {
+        patientName = baseResult.patientName
+        patientAge = baseResult.patientAge
+        rightThresholds = baseResult.rightThresholdsDb.copyOf()
+        leftThresholds = baseResult.leftThresholdsDb.copyOf()
+        rightMasked = baseResult.rightMaskedThresholdsDb?.copyOf() ?: FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        leftMasked = baseResult.leftMaskedThresholdsDb?.copyOf() ?: FloatArray(TEST_FREQUENCIES.size) { Float.NaN }
+        hasMaskedData = baseResult.rightMaskedThresholdsDb != null || baseResult.leftMaskedThresholdsDb != null
+        unreliableRight.clear()
+        unreliableRight.addAll(baseResult.unreliableRightFreqIndices)
+        unreliableLeft.clear()
+        unreliableLeft.addAll(baseResult.unreliableLeftFreqIndices)
+        appendToTimestamp = baseResult.timestampMillis
+
+        val flagged = findFrequenciesNeedingMasking(thresholdDb)
+            .filter { earScope == null || it.first == earScope }
+
+        if (flagged.isEmpty()) {
+            appendToTimestamp = null
+            MessageDialog.show(this, R.string.masked_test_no_frequencies_flagged)
+            return
+        }
+
+        // بدون کوشش کنترلی: این یک بازآزمایی هدفمند و کوچک روی چند فرکانس مشخص است (نه آزمون
+        // اصلی)، دقیقاً مثل بررسی خودکار جزئی ماسکینگ؛ با چند بلوک کم، حتی یکی دو کوشش کنترلی هم
+        // می‌تواند بر بلوک‌های واقعی غلبه کند و سکوت‌های پشت‌سرهم ایجاد کند.
+        runTestPhase(masked = true, blocks = flagged, catchTrialCount = 0) {
+            finalizeAndShow()
+        }
+    }
+
+    private fun runTestPhase(
+        masked: Boolean,
+        blocks: List<Pair<Ear, Int>>,
+        catchTrialCount: Int,
+        onPhaseDone: () -> Unit
+    ) {
+        isMaskedPhase = masked
+        binding.testMaskingBadge.visibility = if (masked) View.VISIBLE else View.GONE
+
+        isPaused = false
+        binding.pauseResumeButton.text = getString(R.string.pause_test)
+        binding.pausedStatusText.visibility = View.GONE
+
+        binding.introSection.visibility = View.GONE
+        binding.resultSection.visibility = View.GONE
+        binding.testSection.visibility = View.VISIBLE
+
+        val newController = HearingTestController(
+            frequenciesHz = TEST_FREQUENCIES,
+            blocks = blocks,
+            catchTrialCount = catchTrialCount,
+            onPlayTone = { ear, freqHz, attenuationDb -> playTestTone(ear, freqHz, attenuationDb) },
+            onPlayCatchTrial = { playCatchTrial() },
+            onProgress = { ear, freqIndex, completed, total -> updateProgress(ear, freqIndex, completed, total) },
+            onBlockFinished = { ear, freqIndex, thresholdDb -> recordBlockResult(masked, ear, freqIndex, thresholdDb) },
+            onCatchTrialFailed = { ear, freqIndex -> recordUnreliable(ear, freqIndex) },
+            onFinished = { onPhaseDone() }
+        )
+        controller = newController
+        newController.start()
+    }
+
+    private fun recordBlockResult(masked: Boolean, ear: Ear, freqIndex: Int, thresholdDb: Float) {
+        if (masked) {
+            hasMaskedData = true
+            if (ear == Ear.RIGHT) rightMasked[freqIndex] = thresholdDb else leftMasked[freqIndex] = thresholdDb
+        } else {
+            if (ear == Ear.RIGHT) rightThresholds[freqIndex] = thresholdDb else leftThresholds[freqIndex] = thresholdDb
+        }
+    }
+
+    private fun recordUnreliable(ear: Ear?, freqIndex: Int?) {
+        if (ear == null || freqIndex == null) return
+        if (ear == Ear.RIGHT) unreliableRight.add(freqIndex) else unreliableLeft.add(freqIndex)
+    }
+
+    private fun onMainPhaseFinished() {
+        val flaggedBlocks = findFrequenciesNeedingMasking()
+        if (flaggedBlocks.isNotEmpty()) {
+            runTestPhase(masked = true, blocks = flaggedBlocks, catchTrialCount = 0) {
+                askCrossHearingQuestion()
+            }
+        } else {
+            askCrossHearingQuestion()
+        }
+    }
+
+    /**
+     * بر پایه معیار بالینی رایج تضعیف بین‌گوشی (Interaural Attenuation): فرکانس‌هایی که
+     * اختلاف آستانه دو گوش در آن‌ها به [INTERAURAL_MASKING_THRESHOLD_DB] یا بیشتر می‌رسد را
+     * برمی‌گرداند، به‌همراه گوشِ ضعیف‌تر (که باید با ماسک دوباره آزموده شود).
+     */
+    private fun findFrequenciesNeedingMasking(thresholdDb: Float = INTERAURAL_MASKING_THRESHOLD_DB): List<Pair<Ear, Int>> {
+        val result = mutableListOf<Pair<Ear, Int>>()
+        for (i in TEST_FREQUENCIES.indices) {
+            val r = rightThresholds.getOrNull(i)?.takeIf { !it.isNaN() } ?: continue
+            val l = leftThresholds.getOrNull(i)?.takeIf { !it.isNaN() } ?: continue
+            if (abs(r - l) >= thresholdDb) {
+                // آستانه پایین‌تر یعنی به صدای بلندتری نیاز داشته = گوش ضعیف‌تر همان‌جاست
+                val weakerEar = if (r < l) Ear.RIGHT else Ear.LEFT
+                result.add(weakerEar to i)
+            }
+        }
+        return result
+    }
+
+    private fun askCrossHearingQuestion() {
+        binding.testSection.visibility = View.GONE
+        AlertDialog.Builder(this)
+            .setTitle(R.string.cross_hearing_dialog_title)
+            .setMessage(R.string.cross_hearing_dialog_message)
+            .setCancelable(false)
+            .setPositiveButton(R.string.yes) { _, _ -> runFullMaskedPhase() }
+            .setNegativeButton(R.string.no) { _, _ -> finalizeAndShow() }
+            .show()
+    }
+
+    private fun runFullMaskedPhase() {
+        runTestPhase(masked = true, blocks = allEarFrequencyBlocks(), catchTrialCount = FULL_MASKED_PHASE_CATCH_TRIALS) {
+            finalizeAndShow()
+        }
+    }
+
+    private fun buildCurrentResult(): AudiogramResult {
+        return AudiogramResult(
+            frequenciesHz = TEST_FREQUENCIES,
+            rightThresholdsDb = rightThresholds,
+            leftThresholdsDb = leftThresholds,
+            timestampMillis = appendToTimestamp ?: System.currentTimeMillis(),
+            patientName = patientName,
+            patientAge = patientAge,
+            rightMaskedThresholdsDb = if (hasMaskedData) rightMasked else null,
+            leftMaskedThresholdsDb = if (hasMaskedData) leftMasked else null,
+            unreliableRightFreqIndices = unreliableRight.toSet(),
+            unreliableLeftFreqIndices = unreliableLeft.toSet()
+        )
+    }
+
+    private fun finalizeAndShow() {
+        val result = buildCurrentResult()
+        val appendedTimestamp = appendToTimestamp
+        if (appendedTimestamp != null) {
+            AudiogramStorage.updateResult(this, appendedTimestamp, result)
+        } else {
+            AudiogramStorage.saveResult(this, result)
+        }
+        AudiogramStorage.setSelectedResult(this, result.timestampMillis)
+        appendToTimestamp = null
+
+        binding.testSection.visibility = View.GONE
+        binding.resultSection.visibility = View.VISIBLE
+        binding.audiogramView.setResult(result)
+        updatePatientInfoText(result)
+        updateLegendText(result)
+    }
+
+    private fun updateProgress(ear: Ear, freqIndex: Int, completedBlocks: Int, totalBlocks: Int) {
+        val earLabel = if (ear == Ear.RIGHT) getString(R.string.right_ear) else getString(R.string.left_ear)
+        val freqLabel = formatFrequencyLabel(TEST_FREQUENCIES[freqIndex])
+        binding.testStatusText.text = getString(
+            R.string.audiogram_progress_format, earLabel, completedBlocks + 1, totalBlocks, freqLabel
+        )
+        binding.testProgressBar.progress = if (totalBlocks > 0) (completedBlocks * 100 / totalBlocks) else 0
+    }
+
+    private fun playTestTone(ear: Ear, freqHz: Double, attenuationDb: Float) {
+        pendingEar = ear
+        pendingFreqHz = freqHz
+        pendingAttenuation = attenuationDb
+        pendingIsCatchTrial = false
+
+        binding.hearButton.isEnabled = true
+        binding.dontHearButton.isEnabled = true
+
+        HearingTestTonePlayer.start(
+            this, ear, freqHz, attenuationDb,
+            maskingEnabled = isMaskedPhase,
+            maskingAttenuationDb = MASKING_ATTENUATION_DB
+        )
+    }
+
+    /** کوشش کنترلی: هیچ صدایی پخش نمی‌شود، فقط منتظر پاسخ کاربر می‌مانیم (برای سنجش پاسخ مثبت کاذب) */
+    private fun playCatchTrial() {
+        pendingIsCatchTrial = true
+        binding.hearButton.isEnabled = true
+        binding.dontHearButton.isEnabled = true
+    }
+
+    private fun onUserResponded(heard: Boolean) {
+        if (isPaused) return
+        HearingTestTonePlayer.stop()
+        binding.hearButton.isEnabled = false
+        binding.dontHearButton.isEnabled = false
+        controller?.onResponse(heard)
+    }
+
+    private fun onPauseResumeClicked() {
+        if (isPaused) {
+            isPaused = false
+            binding.pauseResumeButton.text = getString(R.string.pause_test)
+            binding.pausedStatusText.visibility = View.GONE
+
+            if (pendingIsCatchTrial) {
+                binding.hearButton.isEnabled = true
+                binding.dontHearButton.isEnabled = true
+            } else {
+                val ear = pendingEar
+                if (ear != null) {
+                    playTestTone(ear, pendingFreqHz, pendingAttenuation)
+                }
+            }
+        } else {
+            isPaused = true
+            HearingTestTonePlayer.stop()
+            binding.hearButton.isEnabled = false
+            binding.dontHearButton.isEnabled = false
+
+            binding.pauseResumeButton.text = getString(R.string.resume_test)
+            binding.pausedStatusText.visibility = View.VISIBLE
+
+            showTinnitusScoreDialog()
+        }
+    }
+
+    /**
+     * هر بار که کاربر آزمون را موقتاً متوقف می‌کند، نمره ذهنی شدت وزوز هر گوش (۰ تا ۱۰)
+     * پرسیده و به‌همراه وضعیت فعلی اودیوگرام و تنظیمات ماسکر، برای بررسی‌های آزمایشگاهی و
+     * بهبود نرم‌افزار برای سازنده ارسال (یا در صورت نبود اینترنت، برای ارسال بعدی ذخیره) می‌شود.
+     */
+    private fun showTinnitusScoreDialog() {
+        TinnitusScoreDialog.show(this) { left, right -> sendCheckpointReport(left, right) }
+    }
+
+    private fun sendCheckpointReport(leftScore: Int?, rightScore: Int?) {
+        val report = PatientReport.build(
+            context = this,
+            patientName = patientName.ifBlank { binding.patientNameEditText.text?.toString().orEmpty() },
+            patientAge = if (patientAge > 0) patientAge else (binding.patientAgeEditText.text?.toString()?.toIntOrNull() ?: 0),
+            audiogramResult = buildCurrentResult(),
+            leftTinnitusScore = leftScore,
+            rightTinnitusScore = rightScore
+        )
+
+        if (!SheetsReportSender.isConfigured()) {
+            // آدرس مقصد گزارش هنوز در local.properties تنظیم نشده؛ فقط محلی ذخیره می‌شود
+            ReportQueueStorage.enqueue(this, report)
+            MessageDialog.show(this, R.string.report_not_configured_message)
+            return
+        }
+
+        ReportSendManager.sendOrQueue(this, report) { outcome ->
+            runOnUiThread {
+                val message = when (outcome) {
+                    ReportSendManager.SendOutcome.SENT -> getString(R.string.report_sent_message)
+                    ReportSendManager.SendOutcome.NO_NETWORK -> getString(R.string.report_queued_message)
+                    ReportSendManager.SendOutcome.SEND_FAILED -> getString(R.string.report_send_failed_message)
+                }
+                MessageDialog.show(this, message)
+            }
+        }
+    }
+
+    private fun showIntroSection() {
+        HearingTestTonePlayer.stop()
+        isPaused = false
+        pendingEar = null
+        pendingIsCatchTrial = false
+        controller = null
+        isMaskedPhase = false
+        resetAccumulators()
+
+        binding.pauseResumeButton.text = getString(R.string.pause_test)
+        binding.pausedStatusText.visibility = View.GONE
+        binding.testMaskingBadge.visibility = View.GONE
+
+        binding.testSection.visibility = View.GONE
+        binding.resultSection.visibility = View.GONE
+        binding.introSection.visibility = View.VISIBLE
+    }
+
+    private fun formatFrequencyLabel(freqHz: Double): String {
+        return if (freqHz >= 1000) "${(freqHz / 1000).toInt()} کیلوهرتز" else "${freqHz.toInt()} هرتز"
+    }
+
+    private fun updatePatientInfoText(result: AudiogramResult) {
+        val date = Date(result.timestampMillis)
+        val jalaliDate = PersianDateUtils.toJalaliString(date)
+        val gregorianDate = PersianDateUtils.toGregorianString(date)
+        val ageDigits = PersianDateUtils.toPersianDigits(result.patientAge.toString())
+        binding.patientInfoText.text = getString(
+            R.string.patient_info_format, result.patientName, ageDigits, jalaliDate, gregorianDate
+        )
+    }
+
+    private fun updateLegendText(result: AudiogramResult) {
+        binding.legendText.text = AudiogramLegend.build(this, result)
+    }
+
+    // ==================== ذخیره و اشتراک‌گذاری تصویر ====================
+
+    private fun saveAudiogramImage(share: Boolean) {
+        AudiogramImageExporter.saveAndMaybeShare(this, binding.resultCaptureContainer, share)
+    }
+
+    override fun onDestroy() {
+        HearingTestTonePlayer.stop()
+        super.onDestroy()
+    }
+}

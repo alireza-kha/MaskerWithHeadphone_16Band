@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/masked_test_options_message"
+        android:textSize="13sp"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/masked_test_threshold_label" />
+
+    <EditText
+        android:id="@+id/maskedTestThresholdEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:importantForAutofill="no"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="16dp"
+        tools:text="40" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/masked_test_ear_scope_label" />
+
+    <RadioGroup
+        android:id="@+id/maskedTestEarRadioGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="4dp">
+
+        <RadioButton
+            android:id="@+id/maskedTestEarBothRadio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/masked_test_ear_both" />
+
+        <RadioButton
+            android:id="@+id/maskedTestEarRightRadio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/right_ear" />
+
+        <RadioButton
+            android:id="@+id/maskedTestEarLeftRadio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/left_ear" />
+
+    </RadioGroup>
+
+</LinearLayout>
