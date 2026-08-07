@@ -40,6 +40,7 @@ object SettingsStorage {
     private const val KEY_HEARING_AID_RIGHT_VOLUME = "hearing_aid_right_volume"
     private const val KEY_HEARING_AID_EQ_RIGHT_PREFIX = "hearing_aid_eq_right_"
     private const val KEY_HEARING_AID_EQ_LEFT_PREFIX = "hearing_aid_eq_left_"
+    private const val KEY_HEARING_AID_USE_HEADSET_MIC = "hearing_aid_use_headset_mic"
 
     fun saveBandGain(context: Context, index: Int, value: Float) {
         prefs(context).edit().putFloat(KEY_BAND_PREFIX + index, value).apply()
@@ -242,6 +243,14 @@ object SettingsStorage {
 
     fun loadHearingAidLeftEqGain(context: Context, band: Int, default: Float): Float {
         return prefs(context).getFloat(KEY_HEARING_AID_EQ_LEFT_PREFIX + band, default)
+    }
+
+    fun saveHearingAidUseHeadsetMic(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_HEARING_AID_USE_HEADSET_MIC, value).apply()
+    }
+
+    fun loadHearingAidUseHeadsetMic(context: Context): Boolean {
+        return prefs(context).getBoolean(KEY_HEARING_AID_USE_HEADSET_MIC, false)
     }
 
     private fun prefs(context: Context) =

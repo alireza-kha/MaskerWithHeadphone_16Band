@@ -897,6 +897,28 @@
                 android:textColor="#C62828"
                 android:textStyle="italic" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hearing_aid_mic_source_label"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/hearingAidMicSourceButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/hearing_aid_mic_source_phone" />
+
+            <TextView
+                android:id="@+id/hearingAidMicSourceStatusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="12dp"
+                android:textSize="12sp"
+                android:textStyle="italic" />
+
             <Button
                 android:id="@+id/hearingAidPlayStopButton"
                 android:layout_width="match_parent"

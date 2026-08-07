@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
@@ -17,6 +18,12 @@ import androidx.core.content.ContextCompat
 import com.masker.app.audio.BiquadPeakingEq
 import kotlin.concurrent.thread
 import kotlin.math.max
+
+/** منبع دریافت صدای ورودی سمعک: میکروفون گوشی، یا میکروفون خود هدفون (در صورت پشتیبانی هدفون) */
+enum class MicSource {
+    PHONE,
+    HEADSET
+}
 
 /**
  * موتور شبیه‌سازی سمعک پیشرفته: صدای میکروفون گوشی را به‌صورت بلادرنگ دریافت، برای هر گوش
@@ -47,6 +54,28 @@ class HearingAidEngine {
 
         const val MIN_MASTER_GAIN = 0.5f
         const val MAX_MASTER_GAIN = 4.0f
+
+        private val HEADSET_MIC_TYPES = mutableListOf(
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        ).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add(AudioDeviceInfo.TYPE_BLE_HEADSET)
+        }
+
+        /** آیا در حال حاضر میکروفون هدفون (سیمی/USB/بلوتوث) به‌عنوان یک ورودی صدا در دسترس است؟
+         *  برای فعال/غیرفعال کردن گزینه «میکروفون هدفون» در رابط کاربری استفاده می‌شود. */
+        fun isHeadsetMicAvailable(context: Context): Boolean {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+            return audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+                .any { it.type in HEADSET_MIC_TYPES }
+        }
+
+        private fun findHeadsetInputDevice(context: Context): AudioDeviceInfo? {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return null
+            return audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+                .firstOrNull { it.type in HEADSET_MIC_TYPES }
+        }
     }
 
     val leftEqBandGainsDb = FloatArray(EQ_BAND_COUNT) { 0f }
@@ -65,6 +94,11 @@ class HearingAidEngine {
         set(value) {
             field = value.coerceIn(MIN_MASTER_GAIN, MAX_MASTER_GAIN)
         }
+
+    /** منبع میکروفون درخواستی کاربر؛ اگر HEADSET باشد ولی هیچ میکروفون هدفونی در دسترس نباشد،
+     *  به‌صورت خودکار روی میکروفون گوشی برمی‌گردیم (بدون خطا) */
+    @Volatile
+    var micSource: MicSource = MicSource.PHONE
 
     @Volatile
     var isRunning = false
@@ -150,6 +184,15 @@ class HearingAidEngine {
             record.release()
             isRunning = false
             return
+        }
+
+        if (micSource == MicSource.HEADSET) {
+            val headsetDevice = findHeadsetInputDevice(context)
+            if (headsetDevice != null) {
+                record.setPreferredDevice(headsetDevice)
+            } else {
+                Log.w(TAG, "headset mic requested but none available, using default input")
+            }
         }
 
         val echoCanceler = if (AcousticEchoCanceler.isAvailable()) {

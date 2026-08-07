@@ -248,6 +248,12 @@
     <string name="hearing_aid_stop">خاموش کردن سمعک</string>
     <string name="hearing_aid_permission_denied">برای استفاده از سمعک، برنامه به مجوز دسترسی به میکروفون نیاز دارد</string>
     <string name="hearing_aid_headphones_required">ابتدا هدفون (سیمی یا بلوتوث) را به گوشی وصل کنید. بدون هدفون، میکروفون صدای خروجی سمعک را از بلندگوی گوشی دوباره می‌گیرد و باعث زوزه بلند بازخورد صوتی می‌شود.</string>
+    <string name="hearing_aid_mic_source_label">منبع میکروفون</string>
+    <string name="hearing_aid_mic_source_phone">میکروفون: گوشی (برای تغییر لمس کنید)</string>
+    <string name="hearing_aid_mic_source_headset">میکروفون: هدفون (برای تغییر لمس کنید)</string>
+    <string name="hearing_aid_mic_source_status_phone">صدا از میکروفون گوشی دریافت می‌شود.</string>
+    <string name="hearing_aid_mic_source_status_headset">صدا از میکروفون هدفون دریافت می‌شود (در صورت پشتیبانی هدفون).</string>
+    <string name="hearing_aid_mic_source_unavailable">میکروفون هدفون فعلی شناسایی نشد؛ برخی هدفون‌های بی‌سیم میکروفون جداگانه ندارند یا اندروید به آن دسترسی نمی‌دهد. تا وصل شدن هدفونی با میکروفون، از میکروفون گوشی استفاده خواهد شد.</string>
     <string name="hearing_aid_permission_rationale_title">چرا این مجوز لازم است؟</string>
     <string name="hearing_aid_permission_rationale_message">قابلیت «سمعک» صدای اطراف را از میکروفون گوشی به‌صورت بلادرنگ دریافت می‌کند تا آن را (بر اساس نتیجه اودیوگرام شما) تقویت‌شده در هدفون پخش کند. این صدا هرگز ذخیره، ضبط یا به‌جایی ارسال نمی‌شود — فقط لحظه‌ای پردازش و بلافاصله پخش می‌شود. با زدن «متوجه شدم»، مجوز میکروفون را برای همین قابلیت بدهید.</string>
     <string name="continue_action">متوجه شدم</string>

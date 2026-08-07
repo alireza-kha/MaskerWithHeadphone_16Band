@@ -36,6 +36,7 @@ import com.masker.app.databinding.ItemBandSliderBinding
 import com.masker.app.databinding.ItemEqBandSliderBinding
 import com.masker.app.hearingaid.HearingAidEngine
 import com.masker.app.hearingaid.HearingAidService
+import com.masker.app.hearingaid.MicSource
 import com.masker.app.playlist.PlaylistAdapter
 import com.masker.app.playlist.PlaylistPlaybackService
 import com.masker.app.playlist.PlaylistPlayerEngine
@@ -72,6 +73,15 @@ class MainActivity : AppCompatActivity() {
         const val TAB_AUDIOGRAM = 2
         const val TAB_PLAYLIST = 3
         const val TAB_HEARING_AID = 4
+
+        /** نسبت ولوم رسانه گوشی (STREAM_MUSIC) که همیشه پیش از شروع «تطبیق بلندی وزوز» تنظیم
+         *  می‌شود، تا اندازه‌گیری‌های مختلف (در جلسات/روزهای متفاوت) با یک مبنای صوتی ثابت و
+         *  قابل‌مقایسه انجام شوند، نه با هر ولومی که کاربر قبلاً گوشی را رویش گذاشته بود. */
+        private const val TINNITUS_TEST_SYSTEM_VOLUME_RATIO = 0.5f
+        /** شدت ثابت ماسکر (masterVolume) در طول این تست، به همین دلیل مبنای ثابت */
+        private const val TINNITUS_TEST_BASELINE_MASTER_VOLUME = 0.5f
+        /** ولوم پایه هر گوش (متعادل، بدون کم/زیاد اولیه) که دسی‌بل انتخابی کاربر نسبت به آن اعمال می‌شود */
+        private const val TINNITUS_TEST_BASELINE_EAR_VOLUME = 1.0f
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -264,6 +274,8 @@ class MainActivity : AppCompatActivity() {
         HearingAidService.engine.masterGain = SettingsStorage.loadHearingAidMasterGain(this, 1.0f)
         HearingAidService.engine.leftVolume = SettingsStorage.loadHearingAidLeftVolume(this, 1.0f)
         HearingAidService.engine.rightVolume = SettingsStorage.loadHearingAidRightVolume(this, 1.0f)
+        HearingAidService.engine.micSource =
+            if (SettingsStorage.loadHearingAidUseHeadsetMic(this)) MicSource.HEADSET else MicSource.PHONE
         for (band in 0 until HearingAidEngine.EQ_BAND_COUNT) {
             val rightGain = SettingsStorage.loadHearingAidRightEqGain(this, band, 0f)
             val leftGain = SettingsStorage.loadHearingAidLeftEqGain(this, band, 0f)
@@ -398,10 +410,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * تطبیق بلندی صدای وزوز هر گوش: ماسکر نویزی با تنظیمات فعلی پخش می‌شود، و کاربر ولوم هر
-     * گوش را (نسبت به همین سطح فعلی، بر حسب دسی‌بل) کم یا زیاد می‌کند تا با شدت وزوز همان گوش
-     * برابر شود. عدد نهایی (نه ولوم واقعی ماسکر) به‌همراه تاریخ و ساعت ذخیره می‌شود؛ ولوم واقعی
-     * ماسکر پس از بستن دیالوگ (چه با ذخیره، چه با انصراف) به مقدار قبلی بازمی‌گردد.
+     * تطبیق بلندی صدای وزوز هر گوش: پیش از باز شدن دیالوگ، ولوم رسانه گوشی و شدت ماسکر هر دو
+     * روی یک مبنای ثابت (نه هر ولومی که کاربر قبلاً رویش گذاشته) تنظیم می‌شوند — این‌طوری
+     * اندازه‌گیری‌های ثبت‌شده در تاریخ‌های مختلف با هم قابل مقایسه می‌مانند. سپس کاربر ولوم هر
+     * گوش را (نسبت به همین مبنای ثابت، بر حسب دسی‌بل) کم یا زیاد می‌کند تا با شدت وزوز همان گوش
+     * برابر شود. عدد نهایی (نه ولوم واقعی ماسکر) به‌همراه تاریخ و ساعت ذخیره می‌شود؛ ولوم رسانه
+     * گوشی و تنظیمات ماسکر پس از بستن دیالوگ (چه با ذخیره، چه با انصراف) به مقدار قبلی بازمی‌گردند.
      */
     private fun showTinnitusLoudnessDialog() {
         if (isTonalPlaying) {
@@ -414,8 +428,21 @@ class MainActivity : AppCompatActivity() {
             startPlayback(PlaybackService.MODE_NOISE)
         }
 
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+        val originalSystemVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val maxSystemVolume = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 0
+        if (audioManager != null && maxSystemVolume > 0) {
+            val fixedSystemVolume = (maxSystemVolume * TINNITUS_TEST_SYSTEM_VOLUME_RATIO).toInt().coerceAtLeast(1)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, fixedSystemVolume, 0)
+        }
+
+        val originalMaster = PlaybackService.noiseEngine.masterVolume
         val originalLeft = PlaybackService.noiseEngine.leftVolume
         val originalRight = PlaybackService.noiseEngine.rightVolume
+
+        PlaybackService.noiseEngine.masterVolume = TINNITUS_TEST_BASELINE_MASTER_VOLUME
+        PlaybackService.noiseEngine.leftVolume = TINNITUS_TEST_BASELINE_EAR_VOLUME
+        PlaybackService.noiseEngine.rightVolume = TINNITUS_TEST_BASELINE_EAR_VOLUME
 
         val dialogView = layoutInflater.inflate(R.layout.dialog_tinnitus_loudness, null)
         val rightSeekBar = dialogView.findViewById<SeekBar>(R.id.tinnitusRightSeekBar)
@@ -426,12 +453,14 @@ class MainActivity : AppCompatActivity() {
         fun applyRight(progress: Int) {
             val db = -progress
             rightValueText.text = getString(R.string.tinnitus_loudness_value_format, db)
-            PlaybackService.noiseEngine.rightVolume = (originalRight * dbToLinearGain(db.toFloat())).coerceIn(0f, 1f)
+            PlaybackService.noiseEngine.rightVolume =
+                (TINNITUS_TEST_BASELINE_EAR_VOLUME * dbToLinearGain(db.toFloat())).coerceIn(0f, 1f)
         }
         fun applyLeft(progress: Int) {
             val db = -progress
             leftValueText.text = getString(R.string.tinnitus_loudness_value_format, db)
-            PlaybackService.noiseEngine.leftVolume = (originalLeft * dbToLinearGain(db.toFloat())).coerceIn(0f, 1f)
+            PlaybackService.noiseEngine.leftVolume =
+                (TINNITUS_TEST_BASELINE_EAR_VOLUME * dbToLinearGain(db.toFloat())).coerceIn(0f, 1f)
         }
         applyRight(0)
         applyLeft(0)
@@ -468,8 +497,12 @@ class MainActivity : AppCompatActivity() {
             .create()
 
         dialog.setOnDismissListener {
+            PlaybackService.noiseEngine.masterVolume = originalMaster
             PlaybackService.noiseEngine.leftVolume = originalLeft
             PlaybackService.noiseEngine.rightVolume = originalRight
+            if (audioManager != null && originalSystemVolume != null) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalSystemVolume, 0)
+            }
         }
         dialog.show()
     }
@@ -1341,6 +1374,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        updateHearingAidMicSourceUi()
+        binding.hearingAidMicSourceButton.setOnClickListener {
+            val newSource = if (HearingAidService.engine.micSource == MicSource.HEADSET) MicSource.PHONE else MicSource.HEADSET
+            if (newSource == MicSource.HEADSET && !HearingAidEngine.isHeadsetMicAvailable(this)) {
+                MessageDialog.show(this, R.string.hearing_aid_mic_source_unavailable)
+            }
+            HearingAidService.engine.micSource = newSource
+            SettingsStorage.saveHearingAidUseHeadsetMic(this, newSource == MicSource.HEADSET)
+            updateHearingAidMicSourceUi()
+        }
+
         val engine = HearingAidService.engine
 
         binding.hearingAidGainSeekBar.progress = ((engine.masterGain - HearingAidEngine.MIN_MASTER_GAIN) * 100).toInt()
@@ -1440,6 +1484,16 @@ class MainActivity : AppCompatActivity() {
     private fun updateHearingAidPlayButtonLabel() {
         binding.hearingAidPlayStopButton.text = getString(
             if (hearingAidUiOn) R.string.hearing_aid_stop else R.string.hearing_aid_start
+        )
+    }
+
+    private fun updateHearingAidMicSourceUi() {
+        val useHeadset = HearingAidService.engine.micSource == MicSource.HEADSET
+        binding.hearingAidMicSourceButton.text = getString(
+            if (useHeadset) R.string.hearing_aid_mic_source_headset else R.string.hearing_aid_mic_source_phone
+        )
+        binding.hearingAidMicSourceStatusText.text = getString(
+            if (useHeadset) R.string.hearing_aid_mic_source_status_headset else R.string.hearing_aid_mic_source_status_phone
         )
     }
 
