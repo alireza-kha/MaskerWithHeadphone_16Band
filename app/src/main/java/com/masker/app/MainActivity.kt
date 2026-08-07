@@ -50,6 +50,7 @@ import com.masker.app.report.TinnitusScoreDialog
 import com.masker.app.schedule.ScheduleActivity
 import com.masker.app.service.PlaybackService
 import com.masker.app.storage.MaskerStorage
+import com.masker.app.wearsync.MaskerWearSyncManager
 import com.masker.app.tinnitus.TinnitusLoudnessExcelExporter
 import com.masker.app.tinnitus.TinnitusLoudnessRecord
 import com.masker.app.tinnitus.TinnitusLoudnessStorage
@@ -180,11 +181,19 @@ class MainActivity : AppCompatActivity() {
         updateLastAudiogramSummary()
         refreshPlaylistUI()
         playlistUiHandler.post(playlistUiUpdater)
+        // هر بار که کاربر به صفحه اصلی برمی‌گردد (مثلاً بعد از انتخاب یک سابقه اودیوگرام دیگر
+        // از صفحه‌ای دیگر)، آخرین وضعیت ماسکر نویزی را به ساعت هوشمند همراه هم می‌فرستد
+        MaskerWearSyncManager.pushStateNow(this)
     }
 
     override fun onPause() {
         super.onPause()
         playlistUiHandler.removeCallbacks(playlistUiUpdater)
+    }
+
+    /** فراخوانی سریع همگام‌سازی وضعیت ماسکر نویزی با ساعت هوشمند همراه، پس از هر تغییر تنظیمات */
+    private fun notifyWatchSyncNeeded() {
+        MaskerWearSyncManager.pushStateDebounced(this)
     }
 
     private fun setupTabs() {
@@ -317,6 +326,7 @@ class MainActivity : AppCompatActivity() {
                     bandGains[i] = value
                     PlaybackService.noiseEngine.bandGains[i] = value
                     SettingsStorage.saveBandGain(this@MainActivity, i, value)
+                    notifyWatchSyncNeeded()
 
                     isUpdatingProgrammatically = true
                     val currentText = rowBinding.bandEditText.text?.toString()
@@ -343,6 +353,7 @@ class MainActivity : AppCompatActivity() {
                     bandGains[i] = value
                     PlaybackService.noiseEngine.bandGains[i] = value
                     SettingsStorage.saveBandGain(this@MainActivity, i, value)
+                    notifyWatchSyncNeeded()
 
                     isUpdatingProgrammatically = true
                     rowBinding.bandSeekBar.progress = clamped
@@ -361,6 +372,7 @@ class MainActivity : AppCompatActivity() {
             masterVolume = value
             PlaybackService.noiseEngine.masterVolume = value
             SettingsStorage.saveMasterVolume(this, value)
+            notifyWatchSyncNeeded()
         })
 
         binding.leftVolumeSeekBar.progress = (leftVolume * 100).toInt()
@@ -368,6 +380,7 @@ class MainActivity : AppCompatActivity() {
             leftVolume = value
             PlaybackService.noiseEngine.leftVolume = value
             SettingsStorage.saveLeftVolume(this, value)
+            notifyWatchSyncNeeded()
         })
 
         binding.rightVolumeSeekBar.progress = (rightVolume * 100).toInt()
@@ -375,6 +388,7 @@ class MainActivity : AppCompatActivity() {
             rightVolume = value
             PlaybackService.noiseEngine.rightVolume = value
             SettingsStorage.saveRightVolume(this, value)
+            notifyWatchSyncNeeded()
         })
 
         binding.tinnitusLoudnessButton.setOnClickListener { showTinnitusLoudnessDialog() }
@@ -485,6 +499,7 @@ class MainActivity : AppCompatActivity() {
                 SettingsStorage.saveNotchSettings(this, false, notchFrequencyHz, notchWidthOctaves)
                 binding.toggleNotchButton.text = getString(R.string.enable_notch)
                 updateNotchStatusText()
+                notifyWatchSyncNeeded()
             } else {
                 val freqText = binding.notchFrequencyEditText.text?.toString()?.trim().orEmpty()
                 val freq = freqText.toDoubleOrNull()
@@ -502,6 +517,7 @@ class MainActivity : AppCompatActivity() {
                 SettingsStorage.saveNotchSettings(this, true, freq, width)
                 binding.toggleNotchButton.text = getString(R.string.disable_notch)
                 updateNotchStatusText()
+                notifyWatchSyncNeeded()
             }
         }
 
@@ -571,6 +587,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             MessageDialog.show(this, R.string.optimize_applied_toast)
+            notifyWatchSyncNeeded()
         }
     }
 
@@ -589,6 +606,7 @@ class MainActivity : AppCompatActivity() {
                 PlaybackService.noiseEngine.modulationDepth = modulationDepth
                 SettingsStorage.saveModulationSettings(this@MainActivity, modulationEnabled, modulationDepth)
                 updateModulationStatusText()
+                notifyWatchSyncNeeded()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -602,6 +620,7 @@ class MainActivity : AppCompatActivity() {
                 if (modulationEnabled) R.string.disable_modulation else R.string.enable_modulation
             )
             updateModulationStatusText()
+            notifyWatchSyncNeeded()
         }
     }
 
