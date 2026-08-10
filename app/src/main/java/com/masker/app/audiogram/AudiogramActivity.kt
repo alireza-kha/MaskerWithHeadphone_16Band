@@ -151,7 +151,7 @@ class AudiogramActivity : AppCompatActivity() {
             startTest()
             return
         }
-        val startVolume = (maxVolume * 0.4f).toInt().coerceIn(1, maxVolume)
+        val startVolume = (maxVolume * 0.6f).toInt().coerceIn(1, maxVolume)
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, startVolume, 0)
 
         val dialogView = layoutInflater.inflate(R.layout.dialog_volume_calibration, null)
